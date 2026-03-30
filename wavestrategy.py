@@ -4,15 +4,14 @@ import os
 from datetime import datetime
 import pandas as pd
 
-# 1. DATABASE MANAGEMENT (JSON File)
+# 1. DATABASE MANAGEMENT
 DB_FILE = "wave_users_db.json"
 
 def load_db():
     if os.path.exists(DB_FILE):
         with open(DB_FILE, "r") as f:
             return json.load(f)
-    # Default admin haddii file-ku uusan jirin
-    return {"admin": {"password": "mukhtaar2026", "visits": 1, "last_login": "N/A"}}
+    return {"admin": {"password": "mukhtaariya2430", "visits": 1, "last_login": "N/A"}}
 
 def save_db(data):
     with open(DB_FILE, "w") as f:
@@ -21,74 +20,57 @@ def save_db(data):
 # 2. PAGE CONFIG
 st.set_page_config(page_title="Wave Pro | Secure Terminal", layout="centered")
 
-# 3. CSS - DESIGN (WHITE & BLACK + GOLD)
+# 3. CSS DESIGN (Black & White + Gold)
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; }
-    
-    /* Login Box - Black */
     div[data-testid="stVerticalBlock"] > div:has(input) {
         background-color: #000000;
         padding: 40px;
         border-radius: 20px;
         box-shadow: 0 15px 35px rgba(0,0,0,0.3);
     }
-
-    /* Gold Text Style */
-    h1, h2, h3, label, .gold-txt {
+    h1, h2, h3, label {
         color: #f3cc4d !important;
         text-shadow: 0 0 10px rgba(243, 204, 77, 0.4);
         font-family: 'Inter', sans-serif;
         font-weight: 800 !important;
+        text-align: center;
     }
-
-    /* Buttons - Black & Gold */
     .stButton>button {
         background: #000000 !important;
         color: #f3cc4d !important;
         border: 2px solid #f3cc4d !important;
         border-radius: 12px !important;
-        height: 3.5em;
-        font-weight: bold !important;
+        height: 3em;
         width: 100%;
     }
-    .stButton>button:hover {
-        background: #f3cc4d !important;
-        color: #000000 !important;
-    }
-
-    /* Sidebar - Deep Black */
     [data-testid="stSidebar"] {
         background-color: #000000 !important;
         border-right: 1px solid #f3cc4d;
     }
     [data-testid="stSidebar"] * { color: #f3cc4d !important; }
-
-    /* Inputs */
     input { background-color: #1a1a1a !important; color: white !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# 4. SESSION INITIALIZATION
+# 4. INITIALIZE
 if 'db' not in st.session_state:
     st.session_state['db'] = load_db()
 
 if 'access_granted' not in st.session_state:
     st.session_state['access_granted'] = False
 
-# ==========================================
-# 5. LOGIN INTERFACE
-# ==========================================
+# --- LOGIN ---
 if not st.session_state['access_granted']:
-    st.markdown("<h1 style='color: #000000 !important; text-align:center;'>WAVE TRADER PRO</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='color: #000 !important; text-align:center;'>WAVE TRADER PRO</h1>", unsafe_allow_html=True)
     with st.container():
         u = st.text_input("Username")
         p = st.text_input("Password", type="password")
-        if st.button("LOGIN TO TERMINAL"):
+        if st.button("LOGIN TO SYSTEM"):
             if u in st.session_state['db'] and st.session_state['db'][u]['password'] == p:
                 st.session_state['access_granted'] = True
                 st.session_state['current_user'] = u
-                # Update Stats
                 st.session_state['db'][u]['visits'] += 1
                 st.session_state['db'][u]['last_login'] = datetime.now().strftime("%Y-%m-%d %H:%M")
                 save_db(st.session_state['db'])
@@ -97,63 +79,70 @@ if not st.session_state['access_granted']:
                 st.error("Invalid Credentials")
     st.stop()
 
-# ==========================================
-# 6. DASHBOARD & DB MANAGEMENT
-# ==========================================
+# --- SIDEBAR CONTROL ---
+is_admin = (st.session_state['current_user'] == "admin")
+
 with st.sidebar:
     st.markdown(f"## 👤 {st.session_state['current_user'].upper()}")
-    st.write(f"Visits: {st.session_state['db'][st.session_state['current_user']]['visits']}")
     st.divider()
 
-    # --- QAYBTA LINK-GA (CUSUB) ---
-    st.subheader("🔗 Share Terminal Link")
-    # Link-ga app-kaaga oo diyaar ah
-    app_url = "https://wave-trader-pro-xmlvsxhvzmvazpr4lzak6m.streamlit.app/"
-    st.code(app_url, language="text")
-    st.caption("Copy link-gan oo u dir user-ka cusub.")
-    st.divider()
+    # ADMIN ONLY: Waxaan qaybtaan arki kara Admin-ka kaliya
+    if is_admin:
+        st.subheader("🛠️ ADMIN PANEL")
+        
+        # Link-ga share-ka (Admin kaliya)
+        app_url = "https://wave-trader-pro-xmlvsxhvzmvazpr4lzak6m.streamlit.app/"
+        st.code(app_url, language="text")
+        st.caption("Link-gan adigaa iska leh Admin.")
 
-    # ADD USER
-    with st.expander("➕ Add New User"):
-        new_u = st.text_input("New Username")
-        new_p = st.text_input("New Password")
-        if st.button("Save User"):
-            if new_u and new_p:
-                st.session_state['db'][new_u] = {"password": new_p, "visits": 0, "last_login": "Never"}
-                save_db(st.session_state['db'])
-                st.success("User Saved to Database!")
-                st.rerun()
+        with st.expander("➕ Create New User"):
+            nu = st.text_input("New User")
+            np = st.text_input("New Pass")
+            if st.button("Save User"):
+                if nu and np:
+                    st.session_state['db'][nu] = {"password": np, "visits": 0, "last_login": "Never"}
+                    save_db(st.session_state['db'])
+                    st.success("User created!")
+                    st.rerun()
 
-    # DELETE USER
-    with st.expander("🗑️ Delete User"):
-        user_list = [k for k in st.session_state['db'].keys() if k != 'admin']
-        if user_list:
-            to_del = st.selectbox("Select User", user_list)
-            if st.button("Delete Permanently"):
-                del st.session_state['db'][to_del]
-                save_db(st.session_state['db'])
-                st.warning("User Removed!")
-                st.rerun()
-        else:
-            st.write("No users to delete.")
+        with st.expander("🗑️ Delete User"):
+            u_list = [k for k in st.session_state['db'].keys() if k != 'admin']
+            if u_list:
+                to_del = st.selectbox("Select User", u_list)
+                if st.button("Remove Permanently"):
+                    del st.session_state['db'][to_del]
+                    save_db(st.session_state['db'])
+                    st.warning("Deleted!")
+                    st.rerun()
+    else:
+        # MACMIILKA: Ma arkayo badannada sare
+        st.success("🟢 Account Active")
+        st.info("You are logged in as a Client.")
 
     if st.button("Logout"):
         st.session_state['access_granted'] = False
         st.rerun()
 
-# MAIN CONTENT - TRACKING TABLE
-st.markdown("<h2 style='color: black !important;'>DATABASE MONITORING</h2>", unsafe_allow_html=True)
-
-# Data Table
-report = []
-for user, info in st.session_state['db'].items():
-    report.append({
-        "User": user,
-        "Total Visits": info['visits'],
-        "Last Login": info['last_login']
-    })
-
-st.table(pd.DataFrame(report))
+# --- MAIN CONTENT ---
+if is_admin:
+    st.markdown("<h2 style='color: black !important;'>DATABASE MONITORING</h2>", unsafe_allow_html=True)
+    report = []
+    for user, info in st.session_state['db'].items():
+        report.append({"User": user, "Visits": info['visits'], "Last Login": info['last_login']})
+    st.table(pd.DataFrame(report))
+else:
+    # BOGGA MACMIILKA (Ma arki karo Database Monitoring)
+    st.markdown("<h2 style='color: black !important;'>CLIENT DASHBOARD</h2>", unsafe_allow_html=True)
+    st.write(f"Ku soo dhawaaw **{st.session_state['current_user']}**. Halkan waa xogtaada shaqada.")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Your Total Visits", st.session_state['db'][st.session_state['current_user']]['visits'])
+    with col2:
+        st.write(f"**Last Online:** {st.session_state['db'][st.session_state['current_user']]['last_login']}")
+    
+    st.divider()
+    st.info("Shaqada terminal-ka hadda waa mid socota. Wixii caawinaad ah la xiriir Admin.")
 import streamlit as st
 import streamlit.components.v1 as components
 
