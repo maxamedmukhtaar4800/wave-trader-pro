@@ -1,13 +1,159 @@
 import streamlit as st
+import json
+import os
+from datetime import datetime
+import pandas as pd
 
-# Tani waa qaybta ugu muhiimsan si error-ka sawirka ku yaal uu u baxo
-if 'current_user' not in st.session_state:
-    st.session_state['current_user'] = ""
+# 1. DATABASE MANAGEMENT (JSON File)
+DB_FILE = "wave_users_db.json"
 
-if 'access' not in st.session_state:
-    st.session_state['access'] = False
+def load_db():
+    if os.path.exists(DB_FILE):
+        with open(DB_FILE, "r") as f:
+            return json.load(f)
+    # Default admin haddii file-ku uusan jirin
+    return {"admin": {"password": "mukhtaar2026", "visits": 1, "last_login": "N/A"}}
 
-# Inta kale ee koodhkaaga halkan ka sii soco...
+def save_db(data):
+    with open(DB_FILE, "w") as f:
+        json.dump(data, f, indent=4)
+
+# 2. PAGE CONFIG
+st.set_page_config(page_title="Wave Pro | Secure Terminal", layout="centered")
+
+# 3. CSS - DESIGN (WHITE & BLACK + GOLD)
+st.markdown("""
+    <style>
+    .stApp { background-color: #ffffff; }
+    
+    /* Login Box - Black */
+    div[data-testid="stVerticalBlock"] > div:has(input) {
+        background-color: #000000;
+        padding: 40px;
+        border-radius: 20px;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+    }
+
+    /* Gold Text Style */
+    h1, h2, h3, label, .gold-txt {
+        color: #f3cc4d !important;
+        text-shadow: 0 0 10px rgba(243, 204, 77, 0.4);
+        font-family: 'Inter', sans-serif;
+        font-weight: 800 !important;
+    }
+
+    /* Buttons - Black & Gold */
+    .stButton>button {
+        background: #000000 !important;
+        color: #f3cc4d !important;
+        border: 2px solid #f3cc4d !important;
+        border-radius: 12px !important;
+        height: 3.5em;
+        font-weight: bold !important;
+        width: 100%;
+    }
+    .stButton>button:hover {
+        background: #f3cc4d !important;
+        color: #000000 !important;
+    }
+
+    /* Sidebar - Deep Black */
+    [data-testid="stSidebar"] {
+        background-color: #000000 !important;
+        border-right: 1px solid #f3cc4d;
+    }
+    [data-testid="stSidebar"] * { color: #f3cc4d !important; }
+
+    /* Inputs */
+    input { background-color: #1a1a1a !important; color: white !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# 4. SESSION INITIALIZATION
+if 'db' not in st.session_state:
+    st.session_state['db'] = load_db()
+
+if 'access_granted' not in st.session_state:
+    st.session_state['access_granted'] = False
+
+# ==========================================
+# 5. LOGIN INTERFACE
+# ==========================================
+if not st.session_state['access_granted']:
+    st.markdown("<h1 style='color: #000000 !important; text-align:center;'>WAVE TRADER PRO</h1>", unsafe_allow_html=True)
+    with st.container():
+        u = st.text_input("Username")
+        p = st.text_input("Password", type="password")
+        if st.button("LOGIN TO TERMINAL"):
+            if u in st.session_state['db'] and st.session_state['db'][u]['password'] == p:
+                st.session_state['access_granted'] = True
+                st.session_state['current_user'] = u
+                # Update Stats
+                st.session_state['db'][u]['visits'] += 1
+                st.session_state['db'][u]['last_login'] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                save_db(st.session_state['db'])
+                st.rerun()
+            else:
+                st.error("Invalid Credentials")
+    st.stop()
+
+# ==========================================
+# 6. DASHBOARD & DB MANAGEMENT
+# ==========================================
+with st.sidebar:
+    st.markdown(f"## 👤 {st.session_state['current_user'].upper()}")
+    st.write(f"Visits: {st.session_state['db'][st.session_state['current_user']]['visits']}")
+    st.divider()
+
+    # --- QAYBTA LINK-GA (CUSUB) ---
+    st.subheader("🔗 Share Terminal Link")
+    # Link-ga app-kaaga oo diyaar ah
+    app_url = "https://wave-trader-pro-xmlvsxhvzmvazpr4lzak6m.streamlit.app/"
+    st.code(app_url, language="text")
+    st.caption("Copy link-gan oo u dir user-ka cusub.")
+    st.divider()
+
+    # ADD USER
+    with st.expander("➕ Add New User"):
+        new_u = st.text_input("New Username")
+        new_p = st.text_input("New Password")
+        if st.button("Save User"):
+            if new_u and new_p:
+                st.session_state['db'][new_u] = {"password": new_p, "visits": 0, "last_login": "Never"}
+                save_db(st.session_state['db'])
+                st.success("User Saved to Database!")
+                st.rerun()
+
+    # DELETE USER
+    with st.expander("🗑️ Delete User"):
+        user_list = [k for k in st.session_state['db'].keys() if k != 'admin']
+        if user_list:
+            to_del = st.selectbox("Select User", user_list)
+            if st.button("Delete Permanently"):
+                del st.session_state['db'][to_del]
+                save_db(st.session_state['db'])
+                st.warning("User Removed!")
+                st.rerun()
+        else:
+            st.write("No users to delete.")
+
+    if st.button("Logout"):
+        st.session_state['access_granted'] = False
+        st.rerun()
+
+# MAIN CONTENT - TRACKING TABLE
+st.markdown("<h2 style='color: black !important;'>DATABASE MONITORING</h2>", unsafe_allow_html=True)
+
+# Data Table
+report = []
+for user, info in st.session_state['db'].items():
+    report.append({
+        "User": user,
+        "Total Visits": info['visits'],
+        "Last Login": info['last_login']
+    })
+
+st.table(pd.DataFrame(report))
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -90,7 +236,7 @@ st.sidebar.markdown("<div class='sidebar-name'>Mohamed Mukhtaar</div>", unsafe_a
 st.sidebar.markdown("<p class='wave-trader-text'>WAVE TRADER PRO</p>", unsafe_allow_html=True)
 st.sidebar.markdown("<div style='margin: 5px 0; border-bottom: 1px solid #4a342e;'></div>", unsafe_allow_html=True)
 
-# Liiska Lacagaha (TradingView Symbols)
+# Liiska Lacagaha (Ttab1, tab2 = st.tabs([" Login", " Is-diwaangali (Sign Up)"])radingView Symbols)
 assets = {
     "EUR/USD": "FX:EURUSD", "GBP/USD": "FX:GBPUSD", "AUD/USD": "FX:AUDUSD",
     "NZD/USD": "FX:NZDUSD", "USD/CAD": "FX:USDCAD", "USD/JPY": "FX:USDJPY",
