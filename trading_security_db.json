@@ -1,0 +1,32 @@
+{
+    "admin": {
+        "password": "123",
+        "visits": 14,
+        "role": "Admin",
+        "status": "Active",
+        "message": "",
+        "permissions": [
+            "All"
+        ],
+        "errors": 0
+    },
+    "maxamed": {
+        "password": "1234",
+        "visits": 3,
+        "role": "Trader",
+        "status": "Active",
+        "message": "",
+        "permissions": [
+            "Metrics"
+        ],
+        "errors": 0
+    },
+    "jano": {
+        "password": "1122",
+        "visits": 0,
+        "errors": 0,
+        "status": "Active",
+        "message": "",
+        "role": "Trader"
+    }
+}

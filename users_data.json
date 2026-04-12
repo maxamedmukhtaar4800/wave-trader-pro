@@ -1,0 +1,22 @@
+{
+    "admin": {
+        "password": "123",
+        "visits": 2,
+        "role": "Admin",
+        "status": "Active",
+        "message": "",
+        "permissions": [
+            "All"
+        ]
+    },
+    "maxamed": {
+        "password": "1234",
+        "visits": 1,
+        "role": "Trader",
+        "status": "Active",
+        "message": "",
+        "permissions": [
+            "Metrics"
+        ]
+    }
+}

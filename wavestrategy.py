@@ -1,816 +1,597 @@
+def send_telegram_alert(category, message):
+    TOKEN = "8780775034:AAFlYB7JMAOQ_G9WU4XwLjZ5nAYpuEm9-vU"
+    CHAT_ID = "6694010843"
+    
+    # Noocyada fariimaha iyo calaamadaha u gaarka ah
+    categories = {
+        "BLOCK": "🚫 *ACCOUNT BLOCKED*",
+        "TRADE": "📈 *NEW TRADE ACTIVE*",
+        "REMINDER": "🔔 *DAILY REMINDER*",
+        "UNBLOCK": "✅ *ACCOUNT RESTORED*"
+    }
+    
+    header = categories.get(category, "ℹ️ *NOTIFICATION*")
+    full_msg = f"{header}\n\n{message}"
+    
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    payload = {"chat_id": CHAT_ID, "text": full_msg, "parse_mode": "Markdown"}
+    
+    try:
+        requests.post(url, json=payload)
+        return True
+    except:
+        return False
 import streamlit as st
 import json
 import os
-from datetime import datetime
-import pandas as pd
 
-# 1. DATABASE MANAGEMENT
-DB_FILE = "wave_users_db.json"
+# 1. SETUP - Ballaca shashadda
+st.set_page_config(page_title="MMI TRADER - Ultimate Control", layout="wide")
 
+DB_FILE = "trading_security_db.json"
+
+# --- FUNCTIONS: DATABASE MANAGEMENT ---
 def load_db():
     if os.path.exists(DB_FILE):
         with open(DB_FILE, "r") as f:
-            return json.load(f)
-    return {"admin": {"password": "mukhtaariya2430", "visits": 1, "last_login": "N/A"}}
+            db = json.load(f)
+            # Hubi in qof kasta uu leeyahay keys-ka muhiimka ah (Fix KeyError)
+            for user in db:
+                db[user].setdefault("errors", 0)
+                db[user].setdefault("visits", 0)
+                db[user].setdefault("status", "Active")
+                db[user].setdefault("message", "")
+            return db
+    return {
+        "admin": {"password": "123", "visits": 0, "errors": 0, "status": "Active", "message": "", "role": "Admin"}
+    }
 
 def save_db(data):
     with open(DB_FILE, "w") as f:
         json.dump(data, f, indent=4)
 
-# 2. PAGE CONFIG
-st.set_page_config(page_title="Wave Pro | Secure Terminal", layout="centered")
+# Initialize
+if 'user_db' not in st.session_state:
+    st.session_state.user_db = load_db()
+if 'auth' not in st.session_state:
+    st.session_state.auth = False
 
-# 3. CSS DESIGN (Black & White + Gold)
-st.markdown("""
-    <style>
-    .stApp { background-color: #ffffff; }
-    div[data-testid="stVerticalBlock"] > div:has(input) {
-        background-color: #000000;
-        padding: 40px;
-        border-radius: 20px;
-        box-shadow: 0 15px 35px rgba(0,0,0,0.3);
-    }
-    h1, h2, h3, label {
-        color: #f3cc4d !important;
-        text-shadow: 0 0 10px rgba(243, 204, 77, 0.4);
-        font-family: 'Inter', sans-serif;
-        font-weight: 800 !important;
-        text-align: center;
-    }
-    .stButton>button {
-        background: #000000 !important;
-        color: #f3cc4d !important;
-        border: 2px solid #f3cc4d !important;
-        border-radius: 12px !important;
-        height: 3em;
-        width: 100%;
-    }
-    [data-testid="stSidebar"] {
-        background-color: #000000 !important;
-        border-right: 1px solid #f3cc4d;
-    }
-    [data-testid="stSidebar"] * { color: #f3cc4d !important; }
-    input { background-color: #1a1a1a !important; color: white !important; }
-    </style>
-    """, unsafe_allow_html=True)
+# --- SECURITY BOT LOGIC ---
+def security_bot(u_name):
+    if u_name == "admin": return
+    st.session_state.user_db[u_name]["errors"] += 1
+    # Haddii 3 jeer password khalad ah la geliyo
+    if st.session_state.user_db[u_name]["errors"] >= 3:
+        st.session_state.user_db[u_name]["status"] = "Blocked"
+        st.session_state.user_db[u_name]["message"] = "🤖 SECURITY BOT: Account-kaaga waa la xannibay sababtoo ah waxaad gelisay 3 jeer password khalad ah."
+    save_db(st.session_state.user_db)
 
-# 4. INITIALIZE
-if 'db' not in st.session_state:
-    st.session_state['db'] = load_db()
+# --- LOGIN SCREEN ---
+def login():
+    st.markdown("""<style>[data-testid="stSidebar"] {display: none;} header {visibility: hidden;}</style>""", unsafe_allow_html=True)
+    _, col, _ = st.columns([1, 1.2, 1])
+    with col:
+        st.title("🛡️ MMI TRADER")
+        with st.container(border=True):
+            u_name = st.text_input("Username")
+            u_pass = st.text_input("Password", type="password")
+            if st.button("LOG IN", use_container_width=True):
+                if u_name in st.session_state.user_db:
+                    info = st.session_state.user_db[u_name]
+                    if info["status"] == "Blocked":
+                        st.error("🚫 Akoonkaaga waa la xannibay.")
+                    elif info["password"] == u_pass:
+                        st.session_state.auth = True
+                        st.session_state.user = u_name
+                        info["visits"] += 1
+                        info["errors"] = 0 
+                        save_db(st.session_state.user_db)
+                        st.rerun()
+                    else:
+                        security_bot(u_name)
+                        st.error(f"Password khalad ah! Isku dayga: {st.session_state.user_db[u_name]['errors']}/3")
+                else: st.error("Macmiilkan ma jiro!")
 
-if 'access_granted' not in st.session_state:
-    st.session_state['access_granted'] = False
-
-# --- LOGIN ---
-if not st.session_state['access_granted']:
-    st.markdown("<h1 style='color: #000 !important; text-align:center;'>WAVE TRADER PRO</h1>", unsafe_allow_html=True)
-    with st.container():
-        u = st.text_input("Username")
-        p = st.text_input("Password", type="password")
-        if st.button("LOGIN TO SYSTEM"):
-            if u in st.session_state['db'] and st.session_state['db'][u]['password'] == p:
-                st.session_state['access_granted'] = True
-                st.session_state['current_user'] = u
-                st.session_state['db'][u]['visits'] += 1
-                st.session_state['db'][u]['last_login'] = datetime.now().strftime("%Y-%m-%d %H:%M")
-                save_db(st.session_state['db'])
-                st.rerun()
-            else:
-                st.error("Invalid Credentials")
+if not st.session_state.auth:
+    login()
     st.stop()
 
-# --- SIDEBAR CONTROL ---
-is_admin = (st.session_state['current_user'] == "admin")
+# --- KA DIB LOGIN-KA ---
+current_user = st.session_state.user
+user_data = st.session_state.user_db[current_user]
 
-with st.sidebar:
-    st.markdown(f"## 👤 {st.session_state['current_user'].upper()}")
+# 🛑 FULL SCREEN MESSAGE BLOCK (Cidna ma dhuumato)
+if current_user != "admin" and user_data.get("message"):
+    st.markdown("""<style>[data-testid="stSidebar"] {display: none;} header {visibility: hidden;}</style>""", unsafe_allow_html=True)
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    _, msg_col, _ = st.columns([1, 2, 1])
+    with msg_col:
+        st.error("⚠️ ACCOUNT-KAAGA WAA LA XANNIBAY")
+        with st.container(border=True):
+            st.write(f"### {user_data['message']}")
+            st.write("---")
+            st.info("Barnaamijka inta kale waa lagaa xiray ilaa laga xallinayo arrintan kor ku qoran. Fadlan la xiriir Admin-ka.")
+    st.stop()
+
+# --- SIDEBAR NAVIGATION ---
+st.sidebar.title(f"👤 {current_user.upper()}")
+nav_options = ["📈 Dashboard"]
+if current_user == "admin":
+    nav_options.append("👥 User Management")
+choice = st.sidebar.radio("Navigation", nav_options)
+
+# --- USER MANAGEMENT (MEESHA ADD USER-KU JIRO) ---
+if choice == "👥 User Management":
+    st.title("👥 Control Center & Bot Tracker")
+    
+    # 1. ADD NEW USER
+    with st.expander("➕ Add New Trader", expanded=True):
+        c1, c2 = st.columns(2)
+        new_u = c1.text_input("Username")
+        new_p = c2.text_input("Password")
+        if st.button("Abuur Macmiil Cusub"):
+            if new_u and new_p:
+                st.session_state.user_db[new_u] = {
+                    "password": new_p, "visits": 0, "errors": 0, 
+                    "status": "Active", "message": "", "role": "Trader"
+                }
+                save_db(st.session_state.user_db)
+                st.success(f"Macmiilka {new_u} waa la keydiyey!")
+                st.rerun()
+
     st.divider()
 
-    # ADMIN ONLY: Waxaan qaybtaan arki kara Admin-ka kaliya
-    if is_admin:
-        st.subheader("🛠️ ADMIN PANEL")
-        
-        # Link-ga share-ka (Admin kaliya)
-        app_url = "https://wave-trader-pro-xmlvsxhvzmvazpr4lzak6m.streamlit.app/"
-        st.code(app_url, language="text")
-        st.caption("Link-gan adigaa iska leh Admin.")
+    # 2. TRACKER & BLOCK SYSTEM
+    st.subheader("📊 Tracker & Blocking")
+    for u, info in st.session_state.user_db.items():
+        if u == "admin": continue
+        with st.container(border=True):
+            col1, col2, col3 = st.columns([1, 2, 1])
+            col1.write(f"**User:** `{u}`")
+            col1.write(f"Booqasho: {info['visits']} | Khalad: {info['errors']}")
+           # --- BADHANKA SAVE & BLOCK (Line 151) ---
+            if col3.button("Dhig Fariinta / Block", key=f"b_{u}"):
+                # 1. Keydi xogta system-ka
+                st.session_state.user_db[u]["message"] = msg
+                st.session_state.user_db[u]["status"] = "Blocked" if msg else "Active"
+                save_db(st.session_state.user_db)
+                
+                # 2. DIR ALERT-GA GAARKA AH EE BLOCK-GA
+                if msg:
+                    # Halkan waxaan u diraynaa category-ga "BLOCK"
+                    send_telegram_alert("BLOCK", f"Macmiilka: `{u}`\nSababta: {msg}\nStatus: Isirka hadda waa la xiray! 🛑")
+                    st.success("Alert-gii Block-ga waa baxay!")
+                st.rerun() 
+           # --- 1. DHAMAADKA USER MANAGEMENT ---
+        if col3.button("Dhig Fariinta / Block", key=f"btn_blk_{u}"):
+            info["message"] = msg
+            info["status"] = "Blocked" if msg else "Active"
+            save_db(st.session_state.user_db)
+            if msg:
+                send_telegram_alert("BLOCK", f"Admin-ku wuxuu xiray `{u}`. Sababta: {msg}")
+            st.rerun()
 
-        with st.expander("➕ Create New User"):
-            nu = st.text_input("New User")
-            np = st.text_input("New Pass")
-            if st.button("Save User"):
-                if nu and np:
-                    st.session_state['db'][nu] = {"password": np, "visits": 0, "last_login": "Never"}
-                    save_db(st.session_state['db'])
-                    st.success("User created!")
-                    st.rerun()
+        if col3.button("Reset / Unblock ✅", key=f"btn_res_{u}"):
+            info["status"] = "Active"
+            info["errors"] = 0
+            info["message"] = ""
+            save_db(st.session_state.user_db)
+            st.rerun()
 
-        with st.expander("🗑️ Delete User"):
-            u_list = [k for k in st.session_state['db'].keys() if k != 'admin']
-            if u_list:
-                to_del = st.selectbox("Select User", u_list)
-                if st.button("Remove Permanently"):
-                    del st.session_state['db'][to_del]
-                    save_db(st.session_state['db'])
-                    st.warning("Deleted!")
-                    st.rerun()
-    else:
-        # MACMIILKA: Ma arkayo badannada sare
-        st.success("🟢 Account Active")
-        st.info("You are logged in as a Client.")
-
-    if st.button("Logout"):
-        st.session_state['access_granted'] = False
-        st.rerun()
-
-# --- MAIN CONTENT ---
-if is_admin:
-    st.markdown("<h2 style='color: black !important;'>DATABASE MONITORING</h2>", unsafe_allow_html=True)
-    report = []
-    for user, info in st.session_state['db'].items():
-        report.append({"User": user, "Visits": info['visits'], "Last Login": info['last_login']})
-    st.table(pd.DataFrame(report))
-else:
-    # BOGGA MACMIILKA (Ma arki karo Database Monitoring)
-    st.markdown("<h2 style='color: black !important;'>CLIENT DASHBOARD</h2>", unsafe_allow_html=True)
-    st.write(f"Ku soo dhawaaw **{st.session_state['current_user']}**. Halkan waa xogtaada shaqada.")
+# --- 2. DASHBOARD SECTION (Line 181/182) ---
+# Hubi in 'elif' ay la safan tahay 'if choice == "User Management"'
+elif choice == "📈 Dashboard":
+    st.title("📈 MMI TRADER Dashboard")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("Your Total Visits", st.session_state['db'][st.session_state['current_user']]['visits'])
-    with col2:
-        st.write(f"**Last Online:** {st.session_state['db'][st.session_state['current_user']]['last_login']}")
+    # Haddii Admin-ku yahay, tus meel dhakhso loogu daro user
+    if current_user == "admin":
+        with st.expander("👤 Quick Add User (Admin Only)"):
+            qu, qp = st.columns(2)
+            u_q = qu.text_input("Username", key="dash_u_q") # Key gaar ah
+            p_q = qp.text_input("Password", key="dash_p_q", type="password")
+            if st.button("Save Quick User", key="dash_save_q"):
+                if u_q and p_q:
+                    st.session_state.user_db[u_q] = {"password": p_q, "visits": 0, "errors": 0, "status": "Active", "message": "", "role": "Trader"}
+                    save_db(st.session_state.user_db)
+                    st.success("Waa la abuuray!")
+                    st.rerun()
+# --- DASHBOARD ---
+elif choice == "📈 Dashboard":
+    st.title(f"MMI TRADER Dashboard")
     
-    st.divider()
-    st.info("Shaqada terminal-ka hadda waa mid socota. Wixii caawinaad ah la xiriir Admin.")
+    # Haddii Admin-ku yahay, tus meel dhakhso loogu daro user
+    if current_user == "admin":
+        with st.expander("👤 Quick Add User (Admin Only)"):
+            qu, qp = st.columns(2)
+            u_q = qu.text_input("Username", key="qu")
+            p_q = qp.text_input("Password", key="qp")
+            if st.button("Save Quick User"):
+                if u_q and p_q:
+                    st.session_state.user_db[u_q] = {"password": p_q, "visits": 0, "errors": 0, "status": "Active", "message": "", "role": "Trader"}
+                    save_db(st.session_state.user_db)
+                    st.success("Waa la abuuray!")
+
+    
+if st.sidebar.button("🚪 Logout"):
+    st.session_state.auth = False
+    st.rerun()
+
 import streamlit as st
-import streamlit.components.v1 as components
+import pandas as pd
 
-# 1. Page Config
-st.set_page_config(page_title="M. Mukhtaar | Wave Trader Pro", layout="wide")
+# 1. Habaynta Bogga (Layout & Theme)
+st.set_page_config(page_title="MMI Trader - Step 1", layout="wide")
 
-# CSS - Isku dhowaynta Sidebar-ka iyo Habaynta Midabada
+# CSS: Koodkan wuxuu qurxinayaa midabada iyo qaabka (Styling)
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
-    
-    html, body, [data-testid="stAppViewContainer"] {
-        background-color: #f3f4f6;
-        font-family: 'Plus Jakarta Sans', sans-serif;
-    }
-
-    section[data-testid="stSidebar"] {
-        background-color: #2c1e1a !important;
-        border-right: 1px solid #3d2b27;
-    }
-
-    /* --- SIDEBAR COMPRESSION (ISKU DHOWAYN) --- */
-    [data-testid="stSidebarUserContent"] {
-        padding-top: 5px !important;
-    }
-
-    .sidebar-name {
-        font-size: 24px;
-        font-weight: 800;
-        color: #d4af37;
-        text-align: center;
-        margin-top: 0px;
-        margin-bottom: -10px;
-    }
-
-    .wave-trader-text {
-        text-align: center; 
-        color: #a18e88; 
-        font-size: 10px; 
-        font-weight: 700; 
-        letter-spacing: 1.2px;
-        margin-bottom: 0px;
-    }
-
-    /* Terminal Control iyo Labels-ka oo la isku soo dhoweeyay */
-    [data-testid="stSidebar"] h3 {
-        margin-top: -20px !important;
-        margin-bottom: 0px !important;
-        font-size: 18px !important;
-    }
-
-    /* Yaraynta firaaqada u dhaxaysa widgets-ka */
-    [data-testid="stVerticalBlock"] > div {
-        gap: 0rem !important;
-    }
-
-    .stSelectbox, .stNumberInput, .stSlider {
-        margin-bottom: -10px !important;
-    }
-
-    section[data-testid="stSidebar"] .stMarkdown p, 
-    section[data-testid="stSidebar"] label {
-        color: #e5e7eb !important;
-        font-size: 13px !important;
-        margin-bottom: 0px !important;
-    }
-
-    /* Metric Cards */
-    div[data-testid="metric-container"] {
-        background-color: #ffffff;
-        border: 1px solid #e5e7eb;
-        padding: 10px;
-        border-radius: 10px;
-    }
+    .stApp { background-color: #0e1117; color: white; }
+    .stMetric { background-color: #161b22; padding: 20px; border-radius: 12px; border: 1px solid #30363d; }
+    [data-testid="stSidebar"] { background-color: #161b22; border-right: 1px solid #30363d; }
+    .stButton>button { width: 100%; border-radius: 8px; background-color: #007bff; color: white; border: None; height: 3em; }
+    .stButton>button:hover { background-color: #0056b3; border: 1px solid white; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Sidebar Content
-st.sidebar.markdown("<div class='sidebar-name'>Mohamed Mukhtaar</div>", unsafe_allow_html=True)
-st.sidebar.markdown("<p class='wave-trader-text'>WAVE TRADER PRO</p>", unsafe_allow_html=True)
-st.sidebar.markdown("<div style='margin: 5px 0; border-bottom: 1px solid #4a342e;'></div>", unsafe_allow_html=True)
-
-# Liiska Lacagaha (Ttab1, tab2 = st.tabs([" Login", " Is-diwaangali (Sign Up)"])radingView Symbols)
-assets = {
-    "EUR/USD": "FX:EURUSD", "GBP/USD": "FX:GBPUSD", "AUD/USD": "FX:AUDUSD",
-    "NZD/USD": "FX:NZDUSD", "USD/CAD": "FX:USDCAD", "USD/JPY": "FX:USDJPY",
-    "EUR/AUD": "FX:EURAUD", "EUR/NZD": "FX:EURNZD", "GBP/AUD": "FX:GBPAUD",
-    "GBP/NZD": "FX:GBPNZD", "XAU/USD (Gold)": "OANDA:XAUUSD", "XAG/USD (Silver)": "OANDA:XAGUSD",
-    "BTC/USDT": "BINANCE:BTCUSDT", "ETH/USDT": "BINANCE:ETHUSDT", "SOL/USDT": "BINANCE:SOLUSDT"
-}
-
-symbol_label = st.sidebar.selectbox("Dooro Instrument-ka", list(assets.keys()))
-tv_symbol = assets[symbol_label]
-
-# Timeframes
-timeframe_map = {"1h": "60", "4h": "240", "1d": "D", "1w": "W", "1m": "M"}
-tf_choice = st.sidebar.selectbox("Time Frame", list(timeframe_map.keys()), index=2)
-tv_interval = timeframe_map[tf_choice]
-
-st.sidebar.markdown("<div style='margin: 5px 0; border-bottom: 1px solid #4a342e;'></div>", unsafe_allow_html=True)
-
-# Risk Management
-balance = st.sidebar.number_input("Account Balance ($)", min_value=0.0, value=1000.0)
-risk_percent = st.sidebar.slider("Risk Per Trade (%)", 0.1, 5.0, 1.0)
-stop_loss_dist = st.sidebar.number_input("Stop Loss Distance", min_value=0.0001, value=10.0)
-
-# 3. Main Display
-risk_amount = balance * (risk_percent / 100)
-lot_size = risk_amount / stop_loss_dist if stop_loss_dist > 0 else 0
-
-st.markdown(f"<h3 style='color:#111827; margin-bottom:10px;'>📈 {symbol_label} ({tf_choice}) Terminal</h3>", unsafe_allow_html=True)
-
-m1, m2, m3 = st.columns(3)
-m1.metric("Capital", f"${balance:,.2f}")
-m2.metric("Risk Amount", f"${risk_amount:.2f}")
-m3.metric("Rec. Lot", f"{lot_size:.2f}")
-
-# --- QAYBTA: AI AUTOMATIC WAVE SCANNER (NO MANUAL INPUT) ---
-
-import time
-import pandas as pd
-
-# 1. AI Scanning Logic (Shuruudaha Elliot Wave)
-def scan_wave_opportunities(symbol, data):
-    # FIIRO GAAR AH: 'data' waa inay ahaataa xogta dhabta ah ee suuqa
-    # Halkan waxaan ku qeexaynaa shuruudaha Wave 2 Entry (Golden Zone)
+# 2. Dhinaca (Sidebar - Maamulka)
+with st.sidebar:
+    st.markdown("<h1 style='text-align: center; color: #58a6ff;'>💠 MMI TRADER</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: gray;'>Version 1.0 (BETA)</p>", unsafe_allow_html=True)
+    st.markdown("---")
     
-    signals = []
+    # Badanka ON/OFF (Codsigaagii)
+    st.subheader("🕹️ Bot Control")
+    bot_status = st.toggle("System Live Connection")
     
-    # Tusaale Logic: Wave 2 inta badan waxay ku dhammaataa 0.618 Fibonacci
-    # Waxaan u baahanahay High-ga Wave 1 iyo Low-ga bilowga
-    if len(data) > 20:
-        last_price = data['Close'].iloc[-1]
-        max_price = data['High'].max()
-        min_price = data['Low'].min()
-        
-        # Xisaabinta Fibonacci 0.618 (Golden Entry)
-        fib_618 = max_price - (0.618 * (max_price - min_price))
-        
-        # Shardi: Haddii qiimuhu taabto 0.618 oo uu jiro Rejection
-        if last_price <= fib_618 * 1.002 and last_price >= fib_618 * 0.998:
-            signals.append(f"🚀 {symbol}: Wave 2 Golden Entry Zone (0.618) Detected!")
+    if bot_status:
+        st.success("Bot-ku hadda waa SHIDAN YAHAY")
+    else:
+        st.warning("Bot-ku waa DANSAN YAHAY")
+    
+    st.markdown("---")
+    
+    # --- STEP 4: CLEAN RISK MANAGEMENT (Only Balance Input) ---
 
-    return signals
-# --- Tillaabada 1: Qeex Function-ka (Dhig dusha sare) ---
+st.subheader("ACCOUNT BALANCE ($)")
 
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+# Qofku kaliya wuxuu galinayaa Balance-ka, wax kale lama tusayo
+balance = st.number_input("GALI LACAGTA ACCOUNT KA KUUGU JIRTA", value=1000, step=100)
 
-def send_signal_email(target_email, pair, wave_type, entry, tp, sl):
-    try:
-        sender_email = "maxamedmukhtaar4800@gmail.com"
-        sender_password = "ckxwrtjqbsnnlils" 
+# Xisaabta gudaha ku jirta (Lama soo bandhigayo)
+fixed_risk_percent = 1.0
+fixed_sl_pips = 50
 
-        message = MIMEMultipart()
-        message["From"] = f"Wave Trader Pro <{sender_email}>"
-        message["To"] = target_email
-        message["Subject"] = f"🚀 NEW SIGNAL: {pair}"
+# Xisaabinta Lot-ka si uu diyaarsane ugu ahaado Step-ka 6-aad
+lot_size = (balance * (fixed_risk_percent / 100)) / (fixed_sl_pips * 10)
+final_lot = max(lot_size, 0.01)
 
-        body = f"Pair: {pair}\nSetup: {wave_type}\nEntry: {entry}\nTP: {tp}\nSL: {sl}"
-        message.attach(MIMEText(body, "plain"))
+# Xasuusin: Halkan wax 'st.info' ama 'st.write' ah kuma lihin 
+# si uusan u soo bixin 'Recommended Lot' iyo qoraalka kale.
+# 3. Bogga Dhexe (Main Dashboard)
+st.markdown("<h2 style='color: white;'> Performance Overview</h2>", unsafe_allow_html=True)
 
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        server.sendmail(sender_email, target_email, message.as_string())
-        server.quit()
-        return True
-    except Exception as e:
-        print(f"Email Error: {e}")
-        return False
+# Qaybta Xisaab-xidhka (Metrics)
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("Balance", f"${balance:,.2f}", "+2.5%")
+col2.metric("Monthly Win Rate", "0%", "N/A")
+col3.metric("Total Trades", "0", "New")
+col4.metric("Net Profit", "$0.00", "0%")
 
-# --- Tillaabada 2: Koodhkaaga intiisa kale halkan ha ka bilaawdo ---
-# 2. Automatic Notification Header
-st.markdown("---")
-st.subheader("📡 AI Live Market Scanner")
 
-# Status Indicators
-col_status, col_msg = st.columns([1, 4])
-with col_status:
-    st.write("🟢 **System:** Online")
-with col_msg:
-    st.write(f"🔍 Scanning {len(assets)} pairs for Elliot Wave setups...")
+# 1. Habaynta Bogga
+st.set_page_config(page_title="MMI Trader - Watchlist", layout="wide")
 
-# 3. Automatic Alert Box (Logic-ka muuqda)
-# FIIRO GAAR AH: Si koodhkani Live u shaqeeyo, waa in xogta Binance/Oanda API lagu xidhaa
-placeholder = st.empty()
-
-with placeholder.container():
-    st.markdown(f"""
-        <div style='background-color: #064e3b; padding: 20px; border-radius: 10px; border-left: 10px solid #10b981;'>
-            <h3 style='color: #ecfdf5; margin: 0;'>🤖 AI Automatic Signal Mode</h3>
-            <p style='color: #d1fae5; font-size: 16px;'>
-                <b>Current Strategy:</b> Elliot Wave 1-2-3 Confirmation + Fibonacci 0.618 + RSI Overbought/Oversold.<br>
-                <b>Action:</b> System will push notification to Telegram automatically when setup is complete.
-            </p>
-        </div>
+# CSS Qurxinta
+st.markdown("""
+    <style>
+    .stApp { background-color: #0e1117; color: white; }
+    [data-testid="stMetric"] { background-color: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #30363d; }
+    .stMultiSelect div div div div { background-color: #58a6ff !format; }
+    </style>
     """, unsafe_allow_html=True)
-# Monitoring Loop (Tijaabo ahaan)
-if st.sidebar.button("Start AI Auto-Scan"):
-    st.sidebar.success(f"🚀 AI Scanner is now LIVE...")
+
+# 2. MAAMULKA WATCHLIST-KA (Session State)
+# Liiska lacagaha aad sawirka ku soo dirtay oo loo beddelay qaabka yfinance
+default_pairs = [
+    'EURUSD=X', 'GBPUSD=X', 'NZDUSD=X', 'USDCAD=X', 'USDJPY=X', 
+    'USDZAR=X', 'GC=F', 'SI=F', 'GBPAUD=X', 'GBPNZD=X', 
+    'EURAUD=X', 'EURNZD=X', 'EURJPY=X', 'AUDCAD=X', 'USDCHF=X'
+]
+
+if 'watchlist' not in st.session_state:
+    st.session_state.watchlist = default_pairs
+
+# 3. Sidebar (Maamulka Lacagaha)
+with st.sidebar:
+    st.markdown("<h1 style='color: #58a6ff;'>💠 MMI TRADER</h1>", unsafe_allow_html=True)
     
-    # 1. Khariidadda Magacyada (Map Symbols to Yahoo Finance)
-    # Halkan ku dar wixii symbols ah ee aad Dashboard-ka ku haysato
-    symbol_map = {
-        "XAU/USD (Gold)": "GC=F",
-        "EUR/USD": "EURUSD=X",
-        "GBP/USD": "GBPUSD=X",
-        "BTC/USD": "BTC-USD"
-    }
+    st.subheader(" Maamul Watchlist-ka")
+    
+    # Meel lacag cusub looga daro (Add)
+    new_pair = st.text_input("Ku dar Lacagaha:").upper()
+    if st.button("Add to List"):
+        if new_pair and new_pair not in st.session_state.watchlist:
+            st.session_state.watchlist.append(new_pair)
+            st.rerun()
 
-    while True:
-        # Hel magaca Yahoo Finance u garanayso
-        # Haddii uusan ku jirin liiska, isticmaal waxa ku qoran symbol_label
-        ticker_symbol = symbol_map.get(symbol_label, symbol_label)
+    # Meel looga saaro lacagaha (Remove)
+    pair_to_remove = st.selectbox("Ka saar Lacag:", ["None"] + st.session_state.watchlist)
+    if st.button("Remove Selected"):
+        if pair_to_remove != "None":
+            st.session_state.watchlist.remove(pair_to_remove)
+            st.rerun()
 
-        try:
-            import yfinance as yf
-            ticker = yf.Ticker(ticker_symbol)
-            # Isticmaal 5d (shan bari) si uu mar walba xog u helo
-            data = ticker.history(period="5d", interval="1m")
+    st.markdown("---")
+    
+    # Dooro lacagta aad hadda rabto inaad falanqayso (Analyze)
+    selected_symbol = st.selectbox("Dooro Lacagta aad eegayso:", st.session_state.watchlist)
+    timeframe = st.selectbox("Timeframe:", ["15m", "1h", "4h", "1d"])
+    
+    st.markdown("---")
+    bot_status = st.toggle("System Live Connection", key="bot_switch")
+# --- STEP 4: RISK MANAGEMENT ENGINE ---
 
-            if not data.empty:
-                live_price = data['Close'].iloc[-1]
-                
-                # DIRISTA EMAIL-KA
-                success = send_signal_email(
-                    "maxamedmukhtaar4800@gmail.com", 
-                    symbol_label, 
-                    "Wave 3 Impulse", 
-                    f"{live_price:.2f}", 
-                    f"{live_price + 10:.2f}", 
-                    f"{live_price - 10:.2f}"
-                )
-                
-                if success:
-                    st.toast(f"✅ Signal Live ah: {symbol_label} @ {live_price:.2f}")
+st.sidebar.markdown("---")
+st.sidebar.header("🛡️ Risk Management")
 
-        except Exception as e:
-            st.error(f"Cillad baa dhacday: Magaca '{ticker_symbol}' lama helo.")
+# 1. User Input: Inta lacag ah ee koontada ku jirta
+account_balance = st.sidebar.number_input("Account Balance ($):", min_value=10.0, value=1000.0, step=100.0)
 
-        time.sleep(120) # Sug 2 daqiiqo
-        st.rerun()
-# (Koodhka kale ee Dashboard-ka halkaas ka sii wad)
-st.write("Dashboard-kaagu waa diyaar!")
-def render_auto_marking_chart(symbol, interval):
-    # Waxaan ku daray qaybo cusub oo TradingView u oggolaanaya inay 'Indicators' iyo 'Drawings' xasuusato
-    tv_widget = f"""
-    <div class="tradingview-widget-container" style="height:900px; width:100%;">
-        <div id="tradingview_advanced_chart" style="height:100%; width:100%;"></div>
+# 2. User Input: Inta % ee la halis galinayo (Risk Per Trade)
+risk_percent = st.sidebar.slider("Risk Per Trade (%):", 0.5, 5.0, 1.0)
+
+# 3. User Input: Stop Loss (Pips) - Tan waxaa lagu xiri doonaa Step 6
+sl_pips = st.sidebar.number_input("Standard SL (Pips):", min_value=5, value=20)
+
+# --- XISAABINTA LOT SIZE ---
+def calculate_lot_size(balance, risk_pc, stop_loss):
+    # Cadadka lacagta la halis galinayo (Risk Amount)
+    risk_amount = balance * (risk_pc / 100)
+    
+    # Lot Size formula: Risk Amount / (Stop Loss * Pip Value)
+    # Pip value caadiyan waa $10 haddii uu yahay Standard Lot
+    if stop_loss > 0:
+        lots = risk_amount / (stop_loss * 10)
+        return round(lots, 2)
+    return 0.01
+
+recommended_lots = calculate_lot_size(account_balance, risk_percent, sl_pips)
+
+# Bandhigga Natiijada Risk-ka
+st.sidebar.info(f"""
+    **Risk Summary:**
+    * Amount to Risk: `${account_balance * (risk_percent/100):,.2f}`
+    * Recommended Lot: `{recommended_lots}`
+""")
+# 4. Soo Qabashada Xogta
+@st.cache_data(ttl=60)
+def load_data(ticker, interval):
+    try:
+        data = yf.download(ticker, period="5d", interval=interval)
+        return data
+    except:
+        return pd.DataFrame()
+
+df = load_data(selected_symbol, timeframe)
+
+# 5. Muuqaalka Dashboard-ka
+st.title(f"Market Analysis: {selected_symbol}")
+
+if not df.empty:
+    # Metrics
+    c1, c2, c3 = st.columns(3)
+    current_price = df['Close'].iloc[-1].item()
+    change = current_price - df['Open'].iloc[0].item()
+    
+    c1.metric("Qiimaha Hadda", f"${current_price:,.4f}", f"{change:,.4f}")
+    c2.metric("Xaaladda Bot-ka", "ACTIVE" if bot_status else "STANDBY")
+    c3.metric("Pairs in Watchlist", len(st.session_state.watchlist))
+
+    # --- Qaybta Shaxda iyo Signals-ka (Fixed & Dynamic) ---
+left_col, right_col = st.columns([3, 1])
+
+# 1. Nadiifinta Symbol-ka si uu u bedbedalo (Fixes chart sync)
+tv_sym = selected_symbol.replace("=X", "").replace("-", "")
+if len(tv_sym) == 6: 
+    tv_sym = f"FX:{tv_sym}"
+
+with left_col:
+    # 2. Shaxda TradingView oo si toos ah ula socota Sidebar-ka
+    import streamlit.components.v1 as components
+    
+    # ID-ga halkan (container_id) ayaa ku qasbaya shaxda inay dhalato mar walba
+    chart_id = f"tv_chart_{tv_sym.lower()}"
+    
+    tv_widget_html = f"""
+        <div id="{chart_id}" style="height:480px;"></div>
         <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
         <script type="text/javascript">
         new TradingView.widget({{
-            "autosize": true,
-            "symbol": "{symbol}",
-            "interval": "{interval}",
-            "timezone": "Etc/UTC",
-            "theme": "light",
-            "style": "1",
-            "locale": "en",
-            "toolbar_bg": "#f1f3f6",
-            "enable_publishing": false,
-            "withdateranges": true,
-            "hide_side_toolbar": false,
-            "allow_symbol_change": true,
-            "details": true,
-            "hotlist": true,
-            "calendar": true,
-            "studies": [
-                "ElliottWave@tv-basicstudies"
-            ],
-            "container_id": "tradingview_advanced_chart",
-            "show_popup_button": true,
-            "popup_width": "1000",
-            "popup_height": "800"
+          "autosize": true,
+          "symbol": "{tv_sym}",
+          "interval": "15",
+          "timezone": "Etc/UTC",
+          "theme": "dark",
+          "style": "1",
+          "locale": "en",
+          "container_id": "{chart_id}"
         }});
         </script>
-    </div>
     """
-    return components.html(tv_widget, height=910)
+    # Waxaan u isticmaalay 'height' sax ah si Placeholder-ka uu meesha uga baxo
+    components.html(tv_widget_html, height=500)
 
-# U yeer function-ka
-render_auto_marking_chart(tv_symbol, tv_interval)
-# --- 1. LIVE SIGNAL TRACKER TABLE ---
-st.markdown("### 🎯 Live Trade Signals (AI Recommended)")
-data = {
-    "Asset": ["XAU/USD", "EUR/USD", "BTC/USDT"],
-    "Wave Setup": ["Wave 3 Impulse", "Wave 2 Correction", "Wave 5 Ending"],
-    "Entry Zone": ["2350.00", "1.0850", "65500"],
-    "Confidence": ["85%", "70%", "90%"],
-    "Status": ["READY", "WATCHING", "READY"]
-}
-st.table(data)
-
-# --- 2. ECONOMIC CALENDAR (WIDGET) ---
-st.markdown("### 📅 High Impact News Events")
-def render_calendar():
-    calendar_widget = """
-    <div class="tradingview-widget-container">
-      <iframe src="https://www.tradingview.com/embed-widget/events/?locale=en#%7B%22colorTheme%22%3A%22light%22%2C%22isTransparent%22%3Afalse%2C%22width%22%3A%22100%25%22%2C%22height%22%3A%22400%22%2C%22importanceFilter%22%3A%22-1%2C0%2C1%22%2C%22currencyFilter%22%3A%22USD%2CEUR%2CGBP%22%7D" 
-              width="100%" height="400" frameborder="0"></iframe>
-    </div>
-    """
-    components.html(calendar_widget, height=420)
-
-import streamlit as st
-import pandas as pd
-import yfinance as yf
-import streamlit.components.v1 as components
-
-# 1. PAGE CONFIG
-st.set_page_config(page_title="Wave Trader Pro | Live Terminal", layout="wide")
-
-# 2. INITIALIZE SESSION STATE (Cilad bixinta KeyError)
-if 'access' not in st.session_state:
-    st.session_state['access'] = False
-if 'current_user' not in st.session_state:
-    st.session_state['current_user'] = ""
-if 'role' not in st.session_state:
-    st.session_state['role'] = "user"
-
-# 3. DATABASE CONFIG (Google Sheet ID-gaaga)
-SHEET_ID = "1GzZ3UtrPUQhR0NCb3u5WbgEB4UAn2z6it2NHml7lv4"
-SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
-
-import streamlit as st
-import pandas as pd
-
-# --- Koodhkan halkan geli (Inta u dhaxaysa Import-ka iyo Login-ka) ---
-def load_users():
-    sheet_id = "1GzZ3UtrPUQhR0NCb3u5WbgEB4UAn2z6it2NHml7lv4"
-    url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv"
+with right_col:
+    st.markdown("<h4 style='color: #58a6ff;'>🚀 New Signals</h4>", unsafe_allow_html=True)
     
-    try:
-        df = pd.read_csv(url)
-        df.columns = df.columns.str.strip()
-        return df
-    except Exception as e:
-        return pd.DataFrame([{"username": "admin", "password": "mukhtaar2026", "role": "admin"}])
-
-# --- Inta kale ee koodhkaaga Login-ka ayaa soo raaca ---
-users_df = load_users()
-# 4. LOGIN INTERFACE
-if not st.session_state['access']:
-    st.markdown("<div class='login-container'>", unsafe_allow_html=True)
-    st.title("🔐 Secure Login")
-    
-    users_df = load_users()
-    u_input = st.text_input("Username")
-    p_input = st.text_input("Password", type="password")
-    
-    if st.button("Access Dashboard"):
-        # Hubi hadda xogta sheet-ka ku jirta
-        user_match = users_df[(users_df['username'] == u_input) & (users_df['password'].astype(str) == str(p_input))]
-        
-        if not user_match.empty:
-            st.session_state['access'] = True
-            st.session_state['current_user'] = u_input
-            st.session_state['role'] = user_match.iloc[0]['role']
-            st.success(f"Waa lagu fasaxay {u_input}!")
-            st.rerun()
-        else:
-            st.error("Username ama Password waa khaldan yahay!")
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.stop() # Halkan ayuu joogsanayaa ilaa Login laga sameeyo
-
-# 5. DASHBOARD (Wixii ka dambeeya Login-ka)
-current_user = st.session_state['current_user']
-st.sidebar.title(f"👤 {current_user.upper()}")
-
-# Menu-ga Navigation-ka
-menu = st.sidebar.radio("Menu", ["📊 Dashboard", "📅 Calendar", "🛡️ Admin Panel"])
-
-if menu == "📊 Dashboard":
-    st.title(f"Wave Trader Pro Terminal - {current_user}")
-    asset = st.sidebar.selectbox("Select Pair", ["XAUUSD", "EURUSD", "GBPUSD", "BTCUSDT"])
-    
-    # TradingView Chart
-    tv_url = f"https://www.tradingview.com/widgetembed/?symbol={asset}&interval=60&theme=light"
-    components.html(f'<iframe src="{tv_url}" width="100%" height="500" frameborder="0"></iframe>', height=520)
-
-elif menu == "📅 Calendar":
-    st.title("Economic Calendar")
-    # Halkan geli render_calendar() koodhkeeda
-    st.write("Calendar-ka halkan ayuu ka soo muuqanayaa...")
-
-elif menu == "🛡️ Admin Panel":
-    if st.session_state['role'] != "admin":
-        st.error("Awood uma lihid inaad boggan aragto!")
+    # 3. Bot Analysis oo isna la socda lacagta la doortay (Fixes NameError)
+    if 'df' in locals() and not df.empty:
+        # Halkan waxaa laga saxay VALUE_ERROR-kii Pandas
+        last_price = df['Close'].iloc[-1]
+        if hasattr(last_price, 'iloc'): last_price = last_price.iloc[0]
+            
+        st.markdown(f"""
+            <div style='background-color: #1c2128; padding: 15px; border-radius: 10px; border-left: 5px solid #238636;'>
+                <b style='color: #238636;'>SIGNAL ACTIVE</b><br>
+                <small>Asset: {selected_symbol}</small><br>
+                <small>Price: {last_price:,.4f}</small>
+            </div>
+        """, unsafe_allow_html=True)
     else:
-        st.header("🛡️ User Management")
-        st.write("Xogta Google Sheets:")
-        st.table(load_users())
-
-if st.sidebar.button("Logout"):
-    st.session_state['access'] = False
-    st.rerun()
-# --- USER ACCESS CONTROL (Username & Password) ---
-if 'access_granted' not in st.session_state:
-    st.session_state['access_granted'] = False
-
-if not st.session_state['access_granted']:
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 2, 1])
-    
-    with col2:
-        st.markdown("<div class='login-container'>", unsafe_allow_html=True)
-        st.header("🔐 Member Login")
-        st.write("Fadlan geli aqoonsigaaga si aad u gasho Terminal-ka.")
-        
-        user_input = st.text_input("Username")
-        pass_input = st.text_input("Password", type="password")
-        
-        # Xogta adiga kaliya koodhka ku jirta (Waad beddelan kartaa kuwan)
-        MY_USER = "admin"
-        MY_PASS = "mukhtaar2026"
-        
-        if st.button("Access Dashboard", use_container_width=True):
-            if user_input == MY_USER and pass_input == MY_PASS:
-                st.session_state['access_granted'] = True
-                st.success("Waa lagu fasaxay! Soo gal...")
-                st.rerun()
-            else:
-                st.error("Username ama Password waa khaldan yahay!")
-        st.markdown("</div>", unsafe_allow_html=True)
-    st.stop()
-
-# --- INTI KALE EE DASHBOARD-KAAGA (SIDII HORE) ---
-# Halkan ka sii wad koodhkii Sidebar-ka, Chart-ka iyo Signalada...
-import streamlit as st
-import streamlit.components.v1 as components
-
-# 1. DATABASE-KA DADKA (Tusaale ahaan)
-if 'registered_users' not in st.session_state:
-    # 'admin' waa adiga, 'user1' waa qof aad fasaxday
-    st.session_state['registered_users'] = {
-        "admin": {"pass": "mukhtaar2026", "role": "super_admin", "active": True},
-        "user1": {"pass": "12345", "role": "viewer", "active": True}
-    }
-
-if 'access_granted' not in st.session_state:
-    st.session_state['access_granted'] = False
-    st.session_state['current_user'] = None
-
-# 2. LOGIN SYSTEM (Username & Password)
-if not st.session_state['access_granted']:
-    st.markdown("<h2 style='text-align:center;'>🔐 Wave Trader Pro Access</h2>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 1.5, 1])
-    with col2:
-        with st.form("login_form"):
-            u_name = st.text_input("Username")
-            u_pass = st.text_input("Password", type="password")
-            submitted = st.form_submit_state = st.form_submit_button("Gidarka Fur", use_container_width=True)
-            
-            if submitted:
-                users = st.session_state['registered_users']
-                if u_name in users and users[u_name]['pass'] == u_pass:
-                    if users[u_name]['active']:
-                        st.session_state['access_granted'] = True
-                        st.session_state['current_user'] = u_name
-                        st.rerun()
-                    else:
-                        st.error("Waa lagaa xiray nidaamka! La xiriir Mohamed Mukhtaar.")
-                else:
-                    st.error("Username-ka iyo Password ku wu ka!")
-    st.stop()
-
-# --- DASHBOARD-KA MARKUU FURMO ---
-current_user = st.session_state['current_user']
-user_role = st.session_state['registered_users'][current_user]['role']
-
-# 3. SIDEBAR (Maamulka Mohamed Mukhtaar)
-st.sidebar.markdown(f"<h2 style='color:#d4af37; text-align:center;'>{current_user.upper()}</h2>", unsafe_allow_html=True)
-
-# KALIYA ADMIN-KA AYAA ARKI KARA MEESHAN (USER MANAGEMENT)
-if user_role == "super_admin":
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("👤 Admin: User Control")
-    
-    # Liiska dadka
-    all_users = list(st.session_state['registered_users'].keys())
-    user_to_manage = st.sidebar.selectbox("Dooro User-ka aad xirayso", [u for u in all_users if u != "admin"])
-    
-    if st.sidebar.button("Ka saar / Xir User-kan"):
-        st.session_state['registered_users'][user_to_manage]['active'] = False
-        st.sidebar.success(f"{user_to_manage} waa la xiray!")
-
-    if st.sidebar.button("Fasax User-kan"):
-        st.session_state['registered_users'][user_to_manage]['active'] = True
-        st.sidebar.info(f"{user_to_manage} waa la fasaxay!")
-
-# 4. SETTINGS (User-ka caadiga ah waxba kama badali karo haddii aad rabto)
-st.sidebar.markdown("---")
-st.sidebar.subheader("🕹️ Terminal Settings")
-symbol = st.sidebar.selectbox("Instrument", ["XAUUSD", "EURUSD", "BTCUSDT"])
-
-# 5. DASHBOARD MAIN CONTENT
-st.title(f"📈 Wave Terminal - Welcome {current_user}")
-
-# Signalada Diyaarsan
-st.success("🚀 AI SIGNAL: XAU/USD Wave 3 Setup is Ready at 2340.00")
-
-# Chart-ka
-def render_tv(sym):
-    tv_widget = f"""
-    <iframe src="https://www.tradingview.com/widgetembed/?symbol={sym}&interval=60&theme=light" 
-    width="100%" height="600" frameborder="0"></iframe>
-    """
-    components.html(tv_widget, height=620)
-
-render_tv(symbol)
-
-# Badhanka Logout
-if st.sidebar.button("Log Out"):
-    st.session_state['access_granted'] = False
-    st.rerun()
-    import streamlit as st
-import streamlit.components.v1 as components
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-
-def send_signal_email(target_email, pair, wave_type, entry, tp, sl):
-    # XOGTAADA GAARKA AH
-    sender_email = "maxamedmukhtaar4800@gmail.com"
-    sender_password = "ckxwrtjqbsnnlils" # Halkan xarfaha waan isku dhejiyay (Spaces-ka ka saar)
-
-    message = MIMEMultipart()
-    message["From"] = f"Wave Trader Pro <{sender_email}>"
-    message["To"] = target_email
-    message["Subject"] = f"🚀 NEW SIGNAL: {pair}"
-
-    body = f"""
-    <html>
-      <body style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #d4af37;">
-        <h2 style="color: #2c1e1a;">🎯 Wave Trader Pro Signal</h2>
-        <p><b>Pair:</b> {pair}</p>
-        <p><b>Setup:</b> {wave_type}</p>
-        <p><b>Entry:</b> {entry}</p>
-        <p><b>Target:</b> {tp}</p>
-        <p><b>Stop Loss:</b> {sl}</p>
-        <hr>
-        <p style="font-size: 12px; color: gray;">Email-kan waxaa si automatic ah u soo diray nidaamkaaga Mohamed Mukhtaar.</p>
-      </body>
-    </html>
-    """
-    
-    message.attach(MIMEText(body, "html"))
-
-    try:
-        # Gmail Server Setup
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.set_debuglevel(1) # Tani waxay CMD ku tusaysaa haddii uu error dhaco
-        server.starttls()
-        server.login(sender_email, sender_password)
-        server.sendmail(sender_email, target_email, message.as_string())
-        server.quit()
-        return True
-    except Exception as e:
-        print(f"EMAIL ERROR: {e}") # Ka eeg CMD-gaaga wixii halkan ku qorma
-        return False
-    body = f"""
-    <html>
-      <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 10px; border: 2px solid #d4af37;">
-          <h2 style="color: #2c1e1a; text-align: center;">🎯 New AI Trading Signal</h2>
-          <hr>
-          <p>Nidaamka <b>Wave Trader Pro</b> ayaa helay setup cusub:</p>
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr><td><b>Instrument:</b></td><td>{pair}</td></tr>
-            <tr><td><b>Setup:</b></td><td>{wave_type}</td></tr>
-            <tr><td><b>Entry Zone:</b></td><td>{entry}</td></tr>
-            <tr><td><b>Take Profit:</b></td><td>{tp}</td></tr>
-            <tr><td><b>Stop Loss:</b></td><td>{sl}</td></tr>
-          </table>
-          <br>
-          <p style="text-align: center;">
-            <a href="https://your-app-link.streamlit.app" style="background-color: #d4af37; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">VIEW LIVE CHART</a>
-          </p>
-        </div>
-      </body>
-    </html>
-    """
-    
-    message.attach(MIMEText(body, "html"))
-
-    try:
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        server.sendmail(sender_email, target_email, message.as_string())
-        server.quit()
-        return True
-    except Exception as e:
-        st.error(f"Email Error: {e}")
-        return False
-
-# --- 2. INITIALIZE SESSION STATE (Si uusan error u imaan) ---
-if 'access_granted' not in st.session_state:
-    st.session_state['access_granted'] = False
-if 'current_user' not in st.session_state:
-    st.session_state['current_user'] = None
-
-# --- 3. LOGIN PAGE (SIDII HORE) ---
-if not st.session_state['access_granted']:
-    # (Halkan dhig koodhkii Login-ka ee aan horay u sameynay)
-    st.title("🔐 Login to Wave Trader Pro")
-    u_name = st.text_input("Username")
-    u_pass = st.text_input("Password", type="password")
-    if st.button("Access Dashboard"):
-        if u_name == "admin" and u_pass == "mukhtaar2026":
-            st.session_state['access_granted'] = True
-            st.session_state['current_user'] = u_name
-            st.rerun()
-    st.stop()
-
-# --- 4. MAIN DASHBOARD ---
-st.sidebar.title(f"Welcome, {st.session_state['current_user']}")
-
-# QAYBTA SCAN-KA
-if st.sidebar.button("Start AI Auto-Scan"):
-    with st.spinner("Market-ka ayaa la baarayaa..."):
-        # Tusaale Signal la helay
-        my_pair = "XAU/USD (Gold)"
-        my_setup = "Wave 3 Bullish"
-        
-        # EMAIL U DIR ADMIN-KA (MAXAMED)
-        success = send_signal_email("maxamedmukhtaar4800@gmail.com", my_pair, my_setup, "2350.00", "2410.00", "2335.00")
-        
-        if success:
-            st.sidebar.success("✅ Signal-kii waa la helay, Email-na waa laguu soo diray!")
-        else:
-            st.sidebar.error("❌ Email-ka waa la diri waayay. Hubi password-kaaga Gmail.")
-
-# (Halkan ku dar Chart-kaagii iyo qaybihii kale)
-st.write("Dashboard-kaagu waa diyaar!")
-import streamlit as st
+        # Haddii xogta la la'yahay (Fixes OFFLINE error)
+        st.warning("Sugaya xogta...")
+        import streamlit as st
+import yfinance as yf
 import pandas as pd
-# Waxaan u baahanahay maktabad yar oo fariimaha u dirta Google Sheets
-import requests 
 
-# 1. SETUP
-SHEET_ID = "1GzZ3UtrPUQhR0NCb3u5WbgEB4UAn2z6it2NHml7lv4"
-# Kani waa link-ga xogta laga aqriyo
-READ_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
+# --- CONFIGURATION ---
+FOREX_METALS = ["EURUSD=X", "GBPUSD=X", "XAUUSD=X", "XAGUSD=X"]
+CRYPTO = ["BTC-USD", "ETH-USD"]
 
-# 2. LOGIN & REGISTRATION PAGE
-if not st.session_state.get('access'):
-    tab1, tab2 = st.tabs(["🔐 Login", "📝 Is-diwaangali"])
+def get_market_signals(balance):
+    all_signals = []
     
-    with tab1:
-        # Login Logic (sidii hore)
-        st.subheader("Ku soo dhawaada Wave Trader")
-        
-    with tab2:
-        st.subheader("Abuur Account Cusub")
-        new_user = st.text_input("Username Cusub")
-        new_pass = st.text_input("Password Cusub", type="password")
-        
-        if st.button("Submit Registration"):
-            # FIIRO GAAR AH: 
-            # Si qofka is-diwaangaliya uu ugu qormo Google Sheets, 
-            # waxaad u baahan tahay "Google Forms" ama "Apps Script".
-            # Habka ugu fudud waa inaad adigu gacanta ugu darto dadka sheet-ka 
-            # ama aad isticmaasho Google Form link.
+    for symbol in (FOREX_METALS + CRYPTO):
+        try:
+            # 1. ANALYSIS (1D Trend confirmation)
+            d_data = yf.download(symbol, period="60d", interval="1d", progress=False)
+            ema200_d = d_data['Close'].iloc[-1]
+            curr_p = d_data['Close'].iloc[-1]
+            trend = "UP" if curr_p > ema200_d else "DOWN"
+
+            # 2. TRADE EXECUTION (1H Timeframe)
+            data = yf.download(symbol, period="5d", interval="1h", progress=False)
+            data['EMA10'] = data['Close'].ewm(span=10, adjust=False).mean()
+            data['ATR'] = (data['High'] - data['Low']).rolling(window=14).mean()
             
-            st.success(f"Codsigaaga waa la diray {new_user}! Admin-ka ayaa ku fasaxi doona.")
-            st.info("Admin-ka: Markaad magacan ku aragto Google Sheet-kaaga, 'role'-kiisa ka dhig 'user'.")
-            
+            p = float(data['Close'].iloc[-1])
+            ema10 = float(data['EMA10'].iloc[-1])
+            atr = float(data['ATR'].iloc[-1])
+
+            # ANTI-CHASING LOGIC: 
+            # Waxaan oggolnahay kaliya 0.3x ATR masaafo ah. 
+            # Haddii qiimuhu ka fogaado EMA10 in ka badan intaas, waa "Too Late".
+            max_chase_dist = atr * 0.3 
+
+            sig = None
+            # --- BUY LOGIC (Forex, Metals, Crypto) ---
+            if p > ema10 and trend == "UP":
+                dist = p - ema10
+                if dist <= max_chase_dist: # Kaliya haddii uu u dhow yahay Entry-ga
+                    sig = {"Type": "BUY 🟢", "Entry": ema10, "SL": p-(atr*2), "TP": p+(atr*4), "Color": "#02c076"}
+                else:
+                    sig = {"Type": "MISSED ⚠️", "Note": "Qiimuhu waa uu fogaaday, ha ka daba ordin."}
+
+            # --- SELL LOGIC (Forex & Metals Only) ---
+            elif p < ema10 and trend == "DOWN" and symbol in FOREX_METALS:
+                dist = ema10 - p
+                if dist <= max_chase_dist:
+                    sig = {"Type": "SELL 🔴", "Entry": ema10, "SL": p+(atr*2), "TP": p-(atr*4), "Color": "#f84960"}
+                else:
+                    sig = {"Type": "MISSED ⚠️", "Note": "Trend-ka waa la dhaafay, sug retrace."}
+
+            if sig:
+                all_signals.append({"Symbol": symbol.replace('=X',''), "Data": sig})
+        except: continue
+    return all_signals
+
+# --- UI DASHBOARD ---
+st.title("🎯 Precision Wave Scanner")
+st.write("system-ku wuxuu diidayaa trade kasta oo ka fog aagga saxda ah ee laga galo.")
+
+if st.button("🚀 Scan for Best Entries"):
+    results = get_market_signals(1000) # Balance tusaale ah
+    if results:
+        for r in results:
+            s = r['Data']
+            if s['Type'] == "MISSED ⚠️":
+                st.warning(f"**{r['Symbol']}**: {s['Note']}")
+            else:
+                st.success(f"**{r['Symbol']} {s['Type']}**")
+                st.markdown(f"""
+                    <div style="border:1px solid {s['Color']}; padding:10px; border-radius:10px;">
+                        Entry: <b>{s['Entry']:.5f}</b> | SL: {s['SL']:.5f} | TP: {s['TP']:.5f}
+                    </div>
+                """, unsafe_allow_html=True)
+    else:
+        st.info("Ma jiraan fursado sax ah (Precision) hadda. Sug inta qiimuhu ku soo laabanayo aagga laga galo.")
+        
+
+        
+        import streamlit as st
+
+# 1. SETUP - Ballaarinta Computer-ka (Wide Mode)
+st.set_page_config(
+    page_title="MMI TRADER Analytics",
+    layout="wide", # Computer-ka wuu ballaarinayaa
+    initial_sidebar_state="collapsed"
+)
+
+# 2. CSS CUSTOM - Tani waxay u sheegaysaa Mobile-ka inuu yareeyo bannaanka (padding)
+st.markdown("""
+    <style>
+    /* Mobile optimization */
+    @media (max-width: 640px) {
+        .main .block-container {
+            padding-left: 10px;
+            padding-right: 10px;
+            padding-top: 20px;
+        }
+        .stMetric {
+            background-color: #1e2130;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# 3. CIWAANKA
+st.title("📊 Xisaab-xidhka Ganacsiga")
+st.write("Muuqaalku wuxuu si toos ah isugu hagaajinayaa shashaddaada (PC/Mobile).")
+
+st.divider()
+
+# 4. PERFORMANCE OVERVIEW (Metrics)
+# Afar tiir Computer-ka, hal tiir Mobile-ka
+m_col1, m_col2, m_col3, m_col4 = st.columns([1, 1, 1, 1])
+with m_col1:
+    st.metric("Balance", "$1,000", "+2.5%")
+with m_col2:
+    st.metric("Win Rate", "64%", "Stable")
+with m_col3:
+    st.metric("Total Trades", "128")
+with m_col4:
+    st.metric("Net Profit", "$2,450", "+12%")
+
+st.divider()
+
+# 5. INPUTS & PROGRESS (Hadafka)
+# Computer-ka waxay noqonayaan laba dhinac, Mobile-kana isku dul
+left_col, right_col = st.columns([1, 1.2], gap="large")
+
+with left_col:
+    st.subheader("📥 Gali Xogtaada")
+    hadafka = st.number_input("Hadafka bisha ($):", value=5000)
+    hadda = st.number_input("Faa'iidada hadda ($):", value=2450)
+    win_rate_val = st.slider("Win Rate (%):", 0, 100, 64)
+
+with right_col:
+    st.subheader("🏆 Horumarkaaga")
+    
+    # Xisaabinta
+    if hadafka > 0:
+        percent = (hadda / hadafka) * 100
+        progress_val = min(hadda / hadafka, 1.0)
+    else:
+        percent, progress_val = 0, 0
+    
+    st.write(f"Waxaad gaartay: **{percent:.1f}%**")
+    st.progress(progress_val)
+    
+    # Warbixin kooban
+    st.info(f"Hadafka hadda kuu dhiman: **${max(hadafka - hadda, 0):,.2f}**")
+
+st.divider()
+
