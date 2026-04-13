@@ -1,7 +1,7 @@
 {
     "admin": {
         "password": "123",
-        "visits": 14,
+        "visits": 28,
         "role": "Admin",
         "status": "Active",
         "message": "",
@@ -19,7 +19,9 @@
         "permissions": [
             "Metrics"
         ],
-        "errors": 0
+        "errors": 0,
+        "blocked_by": "-",
+        "date": "-"
     },
     "jano": {
         "password": "1122",
@@ -27,6 +29,8 @@
         "errors": 0,
         "status": "Active",
         "message": "",
-        "role": "Trader"
+        "role": "Trader",
+        "blocked_by": "-",
+        "date": "-"
     }
 }

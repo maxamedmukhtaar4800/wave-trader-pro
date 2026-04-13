@@ -1,0 +1,16 @@
+[
+    {
+        "Date/Time": "13/04/2026 10:32",
+        "Account Balance": "$100.00",
+        "Pair": "USDCAD",
+        "Result": "LOSS \u274c",
+        "Trade Balance": "-$12.0"
+    },
+    {
+        "Date": "13/04/2026 10:35",
+        "Pair": "2000",
+        "Result": "LOSS \u274c",
+        "Trade P/L": -10.0,
+        "Account Balance": 90.0
+    }
+]

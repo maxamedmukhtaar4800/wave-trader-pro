@@ -1,3 +1,19 @@
+import streamlit as st
+
+# 1. Hubi in bogga uu yahay mid ballaaran (Wide Mode)
+# Tani waxay ka caawinaysaa inaysan xogtu isku dhuqmin
+st.set_page_config(layout="wide")
+
+with st.sidebar:
+    # Qaybta sare oo aad u yar (Logo + Magaca hal xariiq ah)
+    st.markdown("""
+        <div style='display: flex; align-items: center; gap: 10px; margin-bottom: -25px;'>
+            <h3 style='color: #58a6ff; margin: 0;'>💠 MMI TRADER</h3>
+        </div>
+        <hr style='margin: 15px 0;'>
+        """, unsafe_allow_html=True)
+    
+   
 def send_telegram_alert(category, message):
     TOKEN = "8780775034:AAFlYB7JMAOQ_G9WU4XwLjZ5nAYpuEm9-vU"
     CHAT_ID = "6694010843"
@@ -112,7 +128,110 @@ if current_user != "admin" and user_data.get("message"):
             st.write("---")
             st.info("Barnaamijka inta kale waa lagaa xiray ilaa laga xallinayo arrintan kor ku qoran. Fadlan la xiriir Admin-ka.")
     st.stop()
+import streamlit as st
+import json
+import os
+import requests
+import time
+import threading
+from datetime import datetime
 
+# 1. SETUP
+DB_FILE = "trading_security_db.json"
+
+# --- TELEGRAM FUNCTION ---
+def send_telegram_alert(message):
+    TOKEN = "8780775034:AAFlYB7JMAOQ_G9WU4XwLjZ5nAYpuEm9-vU"
+    CHAT_ID = "6694010843"
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    try:
+        requests.post(url, json={"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}, timeout=10)
+    except: pass
+
+# --- DATABASE ---
+def load_db():
+    if os.path.exists(DB_FILE):
+        try:
+            with open(DB_FILE, "r") as f: return json.load(f)
+        except: return {}
+    return {"admin": {"password": "123", "status": "Active"}}
+
+def save_db(data):
+    with open(DB_FILE, "w") as f: json.dump(data, f, indent=4)
+
+# --- 🤖 BACKGROUND BOT MONITOR (Kani waa kan kuu maqan!) ---
+def background_monitor():
+    """Mashiinkan wuxuu shaqaynayaa isaga oo aan kuu baahnayn adiga"""
+    while True:
+        data = load_db()
+        updated = False
+        for u, info in data.items():
+            if u == "admin": continue
+            
+            # Haddii qof uu 3 khalad gaaray, laakiin aan weli fariin laga dirin
+            if info.get("errors", 0) >= 3 and info.get("blocked_by") != "SECURITY BOT":
+                now = datetime.now().strftime("%d/%m/%Y %H:%M")
+                info.update({
+                    "status": "Blocked",
+                    "message": "🤖 Auto-Block: 3 Password Attempts Failed.",
+                    "blocked_by": "SECURITY BOT",
+                    "date": now
+                })
+                # Dir fariinta Telegram (Isagaa iskiis u diraya)
+                msg = f"⚠️ *AUTO SECURITY ALERT*\n\n👤 *User:* {u}\n🚨 *Action:* Blocked by Bot\n📅 *Time:* {now}"
+                send_telegram_alert(msg)
+                updated = True
+        
+        if updated:
+            save_db(data)
+        
+        time.sleep(5) # 5-tii ilbiriqsiba mar ayuu iskiis u baarayaa
+
+# --- BILOW MASHIINKA (Haddii uusan hore u shaqaynayn) ---
+if "bot_thread" not in st.session_state:
+    thread = threading.Thread(target=background_monitor, daemon=True)
+    thread.start()
+    st.session_state.bot_thread = True
+
+# --- UI START ---
+st.set_page_config(page_title="MMI TRADER PRO", layout="wide")
+st.title("📊 Security & Tracker Control")
+
+if 'user_db' not in st.session_state:
+    st.session_state.user_db = load_db()
+
+# Excel Header
+h = st.columns([1.5, 1, 1, 2.5, 1.5, 1.5, 1.5])
+headers = ["Username", "Status", "Errors", "Reason", "Bylaw", "Date", "Action"]
+for col, text in zip(h, headers):
+    col.markdown(f"<div style='background:#1E1E1E;color:#00CCFF;padding:10px;border:1px solid #444;text-align:center;font-weight:bold;'>{text}</div>", unsafe_allow_html=True)
+
+# Loop Users (Muqaalka Dashboard-ka)
+for u, info in st.session_state.user_db.items():
+    if u == "admin": continue
+    with st.container():
+        r = st.columns([1.5, 1, 1, 2.5, 1.5, 1.5, 1.5])
+        r[0].write(f"**{u}**")
+        r[1].write("🔴 Blocked" if info.get("status") == "Blocked" else "🟢 Active")
+        r[2].write(f"`{info.get('errors', 0)}/3`")
+        
+        reason = r[3].text_input("Reason", value=info.get("message", ""), key=f"rs_{u}", label_visibility="collapsed")
+        r[4].write(f"*{info.get('blocked_by', '-')}*")
+        r[5].write(f"<small>{info.get('date', '-')}</small>", unsafe_allow_html=True)
+        
+        if info.get("status") == "Active":
+            if r[6].button("🛑 BLOCK", key=f"b_{u}"):
+                now = datetime.now().strftime("%d/%m/%Y %H:%M")
+                info.update({"status": "Blocked", "message": reason, "blocked_by": "ADMIN", "date": now})
+                save_db(st.session_state.user_db)
+                send_telegram_alert(f"🛑 *ADMIN BLOCK*\n👤 *User:* {u}\n📝 *Sabab:* {reason}")
+                st.rerun()
+        else:
+            if r[6].button("✅ RESET", key=f"ok_{u}"):
+                info.update({"status": "Active", "errors": 0, "message": "", "blocked_by": "-", "date": "-"})
+                save_db(st.session_state.user_db)
+                st.rerun()
+    st.markdown("<hr style='margin:0; border:0.1px solid #333'>", unsafe_allow_html=True)
 # --- SIDEBAR NAVIGATION ---
 st.sidebar.title(f"👤 {current_user.upper()}")
 nav_options = ["📈 Dashboard"]
@@ -141,43 +260,7 @@ if choice == "👥 User Management":
 
     st.divider()
 
-    # 2. TRACKER & BLOCK SYSTEM
-    st.subheader("📊 Tracker & Blocking")
-    for u, info in st.session_state.user_db.items():
-        if u == "admin": continue
-        with st.container(border=True):
-            col1, col2, col3 = st.columns([1, 2, 1])
-            col1.write(f"**User:** `{u}`")
-            col1.write(f"Booqasho: {info['visits']} | Khalad: {info['errors']}")
-           # --- BADHANKA SAVE & BLOCK (Line 151) ---
-            if col3.button("Dhig Fariinta / Block", key=f"b_{u}"):
-                # 1. Keydi xogta system-ka
-                st.session_state.user_db[u]["message"] = msg
-                st.session_state.user_db[u]["status"] = "Blocked" if msg else "Active"
-                save_db(st.session_state.user_db)
-                
-                # 2. DIR ALERT-GA GAARKA AH EE BLOCK-GA
-                if msg:
-                    # Halkan waxaan u diraynaa category-ga "BLOCK"
-                    send_telegram_alert("BLOCK", f"Macmiilka: `{u}`\nSababta: {msg}\nStatus: Isirka hadda waa la xiray! 🛑")
-                    st.success("Alert-gii Block-ga waa baxay!")
-                st.rerun() 
-           # --- 1. DHAMAADKA USER MANAGEMENT ---
-        if col3.button("Dhig Fariinta / Block", key=f"btn_blk_{u}"):
-            info["message"] = msg
-            info["status"] = "Blocked" if msg else "Active"
-            save_db(st.session_state.user_db)
-            if msg:
-                send_telegram_alert("BLOCK", f"Admin-ku wuxuu xiray `{u}`. Sababta: {msg}")
-            st.rerun()
-
-        if col3.button("Reset / Unblock ✅", key=f"btn_res_{u}"):
-            info["status"] = "Active"
-            info["errors"] = 0
-            info["message"] = ""
-            save_db(st.session_state.user_db)
-            st.rerun()
-
+    
 # --- 2. DASHBOARD SECTION (Line 181/182) ---
 # Hubi in 'elif' ay la safan tahay 'if choice == "User Management"'
 elif choice == "📈 Dashboard":
@@ -233,29 +316,12 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Dhinaca (Sidebar - Maamulka)
-with st.sidebar:
-    st.markdown("<h1 style='text-align: center; color: #58a6ff;'>💠 MMI TRADER</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: gray;'>Version 1.0 (BETA)</p>", unsafe_allow_html=True)
-    st.markdown("---")
-    
-    # Badanka ON/OFF (Codsigaagii)
-    st.subheader("🕹️ Bot Control")
-    bot_status = st.toggle("System Live Connection")
-    
-    if bot_status:
-        st.success("Bot-ku hadda waa SHIDAN YAHAY")
-    else:
-        st.warning("Bot-ku waa DANSAN YAHAY")
-    
-    st.markdown("---")
-    
     # --- STEP 4: CLEAN RISK MANAGEMENT (Only Balance Input) ---
 
 st.subheader("ACCOUNT BALANCE ($)")
 
 # Qofku kaliya wuxuu galinayaa Balance-ka, wax kale lama tusayo
-balance = st.number_input("GALI LACAGTA ACCOUNT KA KUUGU JIRTA", value=1000, step=100)
+balance = st.number_input("GALI LACAGTA ACCOUNT LACAGTA KUUGU JIRTA", value=1000, step=100)
 
 # Xisaabta gudaha ku jirta (Lama soo bandhigayo)
 fixed_risk_percent = 1.0
@@ -294,7 +360,7 @@ st.markdown("""
 # Liiska lacagaha aad sawirka ku soo dirtay oo loo beddelay qaabka yfinance
 default_pairs = [
     'EURUSD=X', 'GBPUSD=X', 'NZDUSD=X', 'USDCAD=X', 'USDJPY=X', 
-    'USDZAR=X', 'GC=F', 'SI=F', 'GBPAUD=X', 'GBPNZD=X', 
+    'USDZAR=X', 'XAUUSD=F', 'XAGUSD=F', 'GBPAUD=X', 'GBPNZD=X', 
     'EURAUD=X', 'EURNZD=X', 'EURJPY=X', 'AUDCAD=X', 'USDCHF=X'
 ]
 
@@ -595,3 +661,241 @@ with right_col:
 
 st.divider()
 
+import streamlit as st
+import json
+import os
+import requests
+import time
+import threading
+from datetime import datetime
+import pytz
+import pandas as pd
+
+# 1. SETUP & TIMEZONE (Somalia GMT+3)
+SOMALIA_TZ = pytz.timezone('Africa/Mogadishu')
+SIGNALS_FILE = "signals.json"
+CURRENT_MONTH = datetime.now(SOMALIA_TZ).strftime("%B_%Y")
+HISTORY_FILE = f"History_{CURRENT_MONTH}.json"
+
+def get_now():
+    return datetime.now(SOMALIA_TZ)
+
+def send_telegram_alert(message):
+    TOKEN = "8780775034:AAFlYB7JMAOQ_G9WU4XwLjZ5nAYpuEm9-vU"
+    CHAT_ID = "6694010843"
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    try:
+        requests.post(url, json={"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}, timeout=10)
+    except: pass
+
+def load_data(file):
+    if os.path.exists(file):
+        try:
+            with open(file, "r") as f: return json.load(f)
+        except: return {}
+    return {}
+
+def save_data(file, data):
+    with open(file, "w") as f:
+        json.dump(data, f, indent=4)
+
+# 2. 🤖 MASHIINKA HUBINTA (Checks if Entry, SL, TP & Wave are valid)
+def is_signal_valid(sinfo):
+    """Wuxuu hubinayaa in dhammaan xogtu ay buuxdo oo aysan marna madnayn"""
+    required_keys = ['pair', 'type', 'wave', 'entry', 'sl', 'tp', 'time']
+    for key in required_keys:
+        if not sinfo.get(key) or str(sinfo.get(key)).strip() == "":
+            return False
+    return True
+
+def background_worker():
+    sent_signals = {}
+    while True:
+        now = get_now()
+        signals = load_data(SIGNALS_FILE)
+        
+        for sid, sinfo in list(signals.items()):
+            # KALIYA SHAQEE HADDII XOGTU DHAMMAYSTIRAN TAHAY
+            if not is_signal_valid(sinfo):
+                continue
+
+            try:
+                sig_time_obj = datetime.strptime(sinfo['time'], "%H:%M")
+                sig_time = SOMALIA_TZ.localize(sig_time_obj.replace(
+                    year=now.year, month=now.month, day=now.day
+                ))
+                diff = (sig_time - now).total_seconds() / 60
+
+                # A. 5 MIN ALERT (Check integrity again)
+                if 4.8 <= diff <= 5.2 and f"{sid}_5m" not in sent_signals:
+                    msg = (f"⏳ *PREPARE (5 MIN)*\n\n"
+                           f"💹 *Pair:* {sinfo['pair']}\n"
+                           f"🌊 *Mawjada:* {sinfo['wave']}\n"
+                           f"📊 *Type:* {sinfo['type']}\n"
+                           f"⏰ *Time:* {sinfo['time']}")
+                    send_telegram_alert(msg)
+                    sent_signals[f"{sid}_5m"] = True
+
+                # B. ENTRY NOW (Kaliya haddii Entry, SL, iyo TP ay sax yihiin)
+                if -0.5 <= diff <= 0.5 and f"{sid}_now" not in sent_signals:
+                    msg = (f"🚀 *SIGNAL ENTRY NOW*\n\n"
+                           f"💹 *Pair:* {sinfo['pair']}\n"
+                           f"🌊 *Wave:* {sinfo['wave']}\n"
+                           f"⚡️ *Action:* {sinfo['type']}\n"
+                           f"💰 *Entry:* {sinfo['entry']}\n"
+                           f"🛑 *SL:* {sinfo['sl']}\n"
+                           f"✅ *TP:* {sinfo['tp']}")
+                    send_telegram_alert(msg)
+                    sent_signals[f"{sid}_now"] = True
+                    
+                    # Kaydi History
+                    history = load_data(HISTORY_FILE)
+                    history[str(int(time.time()))] = {
+                        "date": now.strftime("%d/%m/%Y"),
+                        "pair": sinfo['pair'], "type": sinfo['type'],
+                        "wave": sinfo['wave'], "entry": sinfo['entry'],
+                        "sl": sinfo['sl'], "tp": sinfo['tp']
+                    }
+                    save_data(HISTORY_FILE, history)
+            except: continue
+        time.sleep(5)
+
+if "worker_started" not in st.session_state:
+    threading.Thread(target=background_worker, daemon=True).start()
+    st.session_state.worker_started = True
+
+import streamlit as st
+import json
+import os
+import requests
+import time
+import threading
+from datetime import datetime
+import pytz
+
+# 1. SETUP & CONFIG
+SOMALIA_TZ = pytz.timezone('Africa/Mogadishu')
+SIGNALS_FILE = "active_signals.json"
+SENT_LOG_FILE = "final_sent_log.json"
+
+def get_now():
+    return datetime.now(SOMALIA_TZ)
+
+def load_json(file):
+    if os.path.exists(file):
+        try:
+            with open(file, "r") as f: return json.load(f)
+        except: return {}
+    return {}
+
+def save_json(file, data):
+    with open(file, "w") as f:
+        json.dump(data, f, indent=4)
+
+def send_telegram(message):
+    TOKEN = "8780775034:AAFlYB7JMAOQ_G9WU4XwLjZ5nAYpuEm9-vU"
+    CHAT_ID = "6694010843"
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    try:
+        requests.post(url, json={"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}, timeout=10)
+    except: pass
+
+# 2. 🤖 MASHIINKA AUTOMATIC-GA AH (Hubinta Signal-yada)
+def background_worker():
+    while True:
+        # Hubi haddii System-ku uu SHIDAN yahay (ON)
+        if st.session_state.get('system_on', False):
+            now = get_now()
+            current_minute = now.strftime("%H:%M")
+            
+            # Si toos ah uga akhriso signals-ka system-kaaga kale
+            signals = load_json(SIGNALS_FILE)
+            sent_log = load_json(SENT_LOG_FILE)
+            
+            for sid, sinfo in list(signals.items()):
+                # Signal-ka waa inuu matches gareeyaa waqtiga iyo inaan horay loo dirin
+                if sinfo.get('time') == current_minute and sid not in sent_log:
+                    
+                    # Professional Design oo automatic ah
+                    msg = (
+                        f"🛰️ *AUTO-SIGNAL EXECUTED*\n"
+                        f"━━━━━━━━━━━━━━━━━━\n"
+                        f"💹 *Pair:* `{sinfo.get('pair')}`\n"
+                        f"⚡️ *Action:* `{sinfo.get('type')}`\n"
+                        f"💰 *Entry:* `{sinfo.get('entry')}`\n"
+                        f"━━━━━━━━━━━━━━━━━━\n"
+                        f"🕒 *Time:* `{sinfo.get('time')} (EAT)`\n"
+                        f"🟢 *Status:* `System Live`"
+                    )
+                    
+                    send_telegram(msg)
+                    
+                    # LOCK: Ku qor sent_log si uusan fariimo badan u soo dirin
+                    sent_log[sid] = True
+                    save_json(SENT_LOG_FILE, sent_log)
+        
+        time.sleep(30) # Sug 30 ilbiriqsi
+
+# 3. CONTROLS & UI (8-Section Integration)
+st.set_page_config(page_title="MMI Wave Scanner", layout="wide")
+
+# QAYBTA KONTROOLKA (ON/OFF Switch)
+st.sidebar.title("SYSTE KA AKHRINAYA XOGTA")
+system_status = st.sidebar.toggle("System Live Connection", value=True)
+st.session_state.system_on = system_status
+
+if system_status:
+    st.sidebar.success("✅ Bot-ku hadda waa SHIDAN YAHAY MARKA UU SIGNAL HELANA WUXU KUSO DIRAYA TELEGRAM-KA")
+else:
+    st.sidebar.error("🔴 Bot-ku hadda waa DAMISAN YAHAY")
+
+# 🛑 START THREAD (Hal mar oo qura)
+if "worker_thread" not in st.session_state:
+    existing_threads = [t.name for t in threading.enumerate()]
+    if "MMI_Auto_Worker" not in existing_threads:
+        thread = threading.Thread(target=background_worker, name="MMI_Auto_Worker", daemon=True)
+        thread.start()
+    st.session_state.worker_thread = True
+
+import streamlit as st
+import threading
+import time
+
+# 1. MASHIINKA SHAQADA (Kani waa kan fariinta hal mar kaliya diraya)
+def background_worker():
+    # Loop-kani wuxuu soconayaa inta nidaamku shaqaynayo
+    while True:
+        # Hubi haddii System-ku uu shaqaynayo (Toggle-kaaga Sidebar-ka)
+        # Isticmaalka st.session_state gudaha thread-ka waa in si taxadir leh loo sameeyaa
+        # Laakiin halkan waxaan u isticmaalaynaa hab ammaan ah
+        
+        print("Mashiinku wuxuu baarayaa signals...") # Tusaale ahaan
+        
+        # Halkan geli koodkaaga fariimaha (Checking signals & sending)
+        
+        time.sleep(30) # Sug 30 ilbiriqsi si uusan u daalin nidaamku
+
+# 2. 🛑 XALKA REFRESH-KA (The Real Fix)
+@st.cache_resource
+def start_bot_worker():
+    """
+    Function-kan hal mar oo qura ayuu Streamlit fulinayaa inta uu App-ku nool yahay.
+    Refresh-ka ma saameeyo function-kan.
+    """
+    # Waxaan abuuraynaa mashiinka (Thread)
+    thread = threading.Thread(target=background_worker, name="MMI_Worker_Thread", daemon=True)
+    thread.start()
+    
+    return "Mashiinka Background-ka waa uu shaqaynayaa (Thread Started)"
+
+# 3. BILAABISTA (Kani kaliya hal mar ayuu fulayaa)
+status = start_bot_worker()
+
+# UI-gaaga caadiga ah
+st.title("🛰️ System Live Status")
+st.success(status)
+
+with st.sidebar:
+    st.subheader("Maamulka")
+    # Badhanka Refresh-ka saamaynta ku lahayn
+    bot_on = st.toggle("Live Sync", key="bot_active")

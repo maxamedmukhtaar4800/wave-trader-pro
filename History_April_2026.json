@@ -1,0 +1,301 @@
+{
+    "1776073859": {
+        "date": "13/04/2026",
+        "time": "12:51",
+        "pair": "EURUSD",
+        "type": "BUY",
+        "source": "Manual"
+    },
+    "1776073864": {
+        "date": "13/04/2026",
+        "time": "12:51",
+        "pair": "EURUSD",
+        "type": "BUY",
+        "source": "Manual"
+    },
+    "1776073915": {
+        "date": "13/04/2026",
+        "time": "12:52",
+        "pair": "EURUSD",
+        "type": "SELL",
+        "source": "Manual"
+    },
+    "1776073930": {
+        "date": "13/04/2026",
+        "time": "12:52",
+        "pair": "EURUSD",
+        "type": "BUY",
+        "source": "Manual"
+    },
+    "1776074070": {
+        "date": "13/04/2026",
+        "time": "12:55",
+        "pair": "EURUSD",
+        "type": "BUY",
+        "source": "Manual"
+    },
+    "1776077345": {
+        "date": "13/04/2026",
+        "pair": "USDJIP",
+        "type": "SELL",
+        "wave": "Wave 3",
+        "entry": "245315",
+        "sl": "1244",
+        "tp": "2314"
+    },
+    "1776077346": {
+        "date": "13/04/2026",
+        "pair": "USDJIP",
+        "type": "SELL",
+        "wave": "Wave 3",
+        "entry": "245315",
+        "sl": "1244",
+        "tp": "2314"
+    },
+    "1776077347": {
+        "date": "13/04/2026",
+        "time": "13:49",
+        "pair": "USDJIP",
+        "type": "SELL",
+        "source": "Auto"
+    },
+    "1776077348": {
+        "date": "13/04/2026",
+        "pair": "USDJIP",
+        "type": "SELL",
+        "wave": "Wave 3",
+        "entry": "245315",
+        "sl": "1244",
+        "tp": "2314"
+    },
+    "1776077545": {
+        "date": "13/04/2026",
+        "pair": "EURUSD",
+        "type": "SELL",
+        "wave": "Correction",
+        "entry": "234213",
+        "sl": "34523",
+        "tp": "24353254"
+    },
+    "1776077546": {
+        "date": "13/04/2026",
+        "pair": "EURUSD",
+        "type": "SELL",
+        "wave": "Correction",
+        "entry": "234213",
+        "sl": "34523",
+        "tp": "24353254"
+    },
+    "1776077547": {
+        "date": "13/04/2026",
+        "pair": "EURUSD",
+        "type": "SELL",
+        "wave": "Correction",
+        "entry": "234213",
+        "sl": "34523",
+        "tp": "24353254"
+    },
+    "1776077548": {
+        "date": "13/04/2026",
+        "time": "13:52",
+        "pair": "EURUSD",
+        "type": "SELL",
+        "source": "Auto"
+    },
+    "1776077549": {
+        "date": "13/04/2026",
+        "pair": "EURUSD",
+        "type": "SELL",
+        "wave": "Correction",
+        "entry": "234213",
+        "sl": "34523",
+        "tp": "24353254"
+    },
+    "1776078128": {
+        "date": "13/04/2026",
+        "time": "14:02",
+        "pair": "CADJPY",
+        "type": "SELL",
+        "source": "Auto"
+    },
+    "1776078129": {
+        "date": "13/04/2026",
+        "pair": "CADJPY",
+        "type": "SELL",
+        "wave": "Wave 3",
+        "entry": "3232",
+        "sl": "3245",
+        "tp": "3452"
+    },
+    "1776078131": {
+        "date": "13/04/2026",
+        "pair": "CADJPY",
+        "type": "SELL",
+        "wave": "Wave 3",
+        "entry": "3232",
+        "sl": "3245",
+        "tp": "3452"
+    },
+    "1776078132": {
+        "date": "13/04/2026",
+        "pair": "CADJPY",
+        "type": "SELL",
+        "wave": "Wave 3",
+        "entry": "3232",
+        "sl": "3245",
+        "tp": "3452"
+    },
+    "1776078252": {
+        "date": "13/04/2026",
+        "pair": "CADJPY",
+        "type": "SELL",
+        "wave": "Wave 3",
+        "entry": "21341",
+        "sl": "1243124",
+        "tp": "23452"
+    },
+    "1776078254": {
+        "date": "13/04/2026",
+        "time": "14:04",
+        "pair": "CADJPY",
+        "type": "SELL",
+        "source": "Auto"
+    },
+    "1776078255": {
+        "date": "13/04/2026",
+        "pair": "CADJPY",
+        "type": "SELL",
+        "wave": "Wave 3",
+        "entry": "21341",
+        "sl": "1243124",
+        "tp": "23452"
+    },
+    "1776078256": {
+        "date": "13/04/2026",
+        "pair": "CADJPY",
+        "type": "SELL",
+        "wave": "Wave 3",
+        "entry": "21341",
+        "sl": "1243124",
+        "tp": "23452"
+    },
+    "1776078257": {
+        "date": "13/04/2026",
+        "pair": "CADJPY",
+        "type": "SELL",
+        "wave": "Wave 3",
+        "entry": "21341",
+        "sl": "1243124",
+        "tp": "23452"
+    },
+    "1776078548": {
+        "date": "13/04/2026",
+        "pair": "USDCAD",
+        "type": "SELL",
+        "wave": "Wave 3",
+        "entry": "45363",
+        "sl": "3452",
+        "tp": "23452"
+    },
+    "1776078549": {
+        "date": "13/04/2026",
+        "time": "14:09",
+        "pair": "USDCAD",
+        "type": "SELL",
+        "source": "Auto"
+    },
+    "1776078550": {
+        "date": "13/04/2026",
+        "pair": "USDCAD",
+        "type": "SELL",
+        "wave": "Wave 3",
+        "entry": "45363",
+        "sl": "3452",
+        "tp": "23452"
+    },
+    "1776078552": {
+        "date": "13/04/2026",
+        "pair": "USDCAD",
+        "type": "SELL",
+        "wave": "Wave 3",
+        "entry": "45363",
+        "sl": "3452",
+        "tp": "23452"
+    },
+    "1776078670": {
+        "date": "13/04/2026",
+        "time": "14:11",
+        "pair": "USDCAD",
+        "type": "SELL",
+        "source": "Auto"
+    },
+    "1776078735": {
+        "date": "13/04/2026",
+        "time": "14:12",
+        "pair": "SFAAS",
+        "type": "BUY",
+        "source": "Auto"
+    },
+    "1776078795": {
+        "date": "13/04/2026",
+        "time": "14:13",
+        "pair": "MAXAMED",
+        "type": "SELL",
+        "source": "Auto"
+    },
+    "1776079075": {
+        "date": "13/04/2026",
+        "pair": "JAAMAC",
+        "type": "BUY \ud83d\udfe2",
+        "wave": "Wave 2",
+        "entry": "3452",
+        "sl": "23452",
+        "tp": "2345"
+    },
+    "1776079076": {
+        "date": "13/04/2026",
+        "time": "14:18",
+        "pair": "JAAMAC",
+        "type": "BUY \ud83d\udfe2",
+        "source": "Auto"
+    },
+    "1776079077": {
+        "date": "13/04/2026",
+        "pair": "JAAMAC",
+        "type": "BUY \ud83d\udfe2",
+        "wave": "Wave 2",
+        "entry": "3452",
+        "sl": "23452",
+        "tp": "2345"
+    },
+    "1776079078": {
+        "date": "13/04/2026",
+        "pair": "JAAMAC",
+        "type": "BUY \ud83d\udfe2",
+        "wave": "Wave 2",
+        "entry": "3452",
+        "sl": "23452",
+        "tp": "2345"
+    },
+    "1776079226": {
+        "date": "13/04/2026",
+        "time": "14:20",
+        "pair": "AKJDFA",
+        "type": "BUY \ud83d\udfe2",
+        "source": "Auto"
+    },
+    "1776079337": {
+        "date": "13/04/2026",
+        "time": "14:22",
+        "pair": "DSAF",
+        "type": "BUY \ud83d\udfe2",
+        "source": "Auto"
+    },
+    "1776079432": {
+        "date": "13/04/2026",
+        "time": "14:24",
+        "pair": "EWWERG",
+        "type": "BUY \ud83d\udfe2",
+        "source": "Auto"
+    }
+}

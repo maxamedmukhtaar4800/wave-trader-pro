@@ -1,0 +1,188 @@
+{
+    "1": {
+        "pair": "udscad",
+        "type": "BUY",
+        "time": "12:29"
+    },
+    "2": {
+        "pair": "USDCAD",
+        "type": "BUY",
+        "time": "12:32"
+    },
+    "3": {
+        "pair": "USDCAD",
+        "type": "BUY",
+        "time": "12:34"
+    },
+    "1776073122": {
+        "pair": "EURUSD",
+        "type": "BUY",
+        "time": "09:39"
+    },
+    "1776073169": {
+        "pair": "GOLD",
+        "type": "BUY",
+        "time": "09:39"
+    },
+    "1776073285": {
+        "pair": "GBPUSD",
+        "type": "BUY",
+        "time": "09:41"
+    },
+    "1776073679": {
+        "pair": "EURUSD",
+        "type": "BUY",
+        "time": "12:48",
+        "source": "Manual"
+    },
+    "1776073717": {
+        "pair": "EURUSD",
+        "type": "SELL",
+        "time": "12:48",
+        "source": "Manual"
+    },
+    "1776073854": {
+        "pair": "EURUSD",
+        "type": "BUY",
+        "time": "12:51",
+        "source": "Manual"
+    },
+    "1776073862": {
+        "pair": "EURUSD",
+        "type": "BUY",
+        "time": "12:51",
+        "source": "Manual"
+    },
+    "1776073914": {
+        "pair": "EURUSD",
+        "type": "SELL",
+        "time": "12:52",
+        "source": "Manual"
+    },
+    "1776073927": {
+        "pair": "EURUSD",
+        "type": "BUY",
+        "time": "12:52",
+        "source": "Manual"
+    },
+    "1776073942": {
+        "pair": "EURUSD",
+        "type": "BUY",
+        "time": "12:55",
+        "source": "Manual"
+    },
+    "1776077343": {
+        "pair": "USDJIP",
+        "wave": "Wave 3",
+        "type": "SELL",
+        "entry": "245315",
+        "sl": "1244",
+        "tp": "2314",
+        "time": "13:49"
+    },
+    "1776077446": {
+        "pair": "CADJPY",
+        "wave": "Wave 2",
+        "type": "BUY",
+        "entry": "4352",
+        "sl": "2345324",
+        "tp": "5432",
+        "time": "13:50"
+    },
+    "1776077544": {
+        "pair": "EURUSD",
+        "wave": "Correction",
+        "type": "SELL",
+        "entry": "234213",
+        "sl": "34523",
+        "tp": "24353254",
+        "time": "13:52"
+    },
+    "1776077978": {
+        "pair": "EURCAD",
+        "wave": "Wave 3",
+        "type": "SELL",
+        "entry": "2423",
+        "sl": "23423",
+        "tp": "23423",
+        "time": "13:59"
+    },
+    "1776078127": {
+        "pair": "CADJPY",
+        "wave": "Wave 3",
+        "type": "SELL",
+        "entry": "3232",
+        "sl": "3245",
+        "tp": "3452",
+        "time": "14:02"
+    },
+    "cadjpy_14:04_1776078252": {
+        "pair": "CADJPY",
+        "wave": "Wave 3",
+        "type": "SELL",
+        "entry": "21341",
+        "sl": "1243124",
+        "tp": "23452",
+        "time": "14:04"
+    },
+    "SIG_1776078547343": {
+        "pair": "USDCAD",
+        "wave": "Wave 3",
+        "type": "SELL",
+        "entry": "45363",
+        "sl": "3452",
+        "tp": "23452",
+        "time": "14:09"
+    },
+    "usdcad_14:11_07": {
+        "pair": "USDCAD",
+        "type": "SELL",
+        "entry": "54345",
+        "time": "14:11"
+    },
+    "sfaas_14:12_13": {
+        "pair": "SFAAS",
+        "type": "BUY",
+        "entry": "4324",
+        "time": "14:12"
+    },
+    "maxamed_14:13_11": {
+        "pair": "MAXAMED",
+        "type": "SELL",
+        "entry": "4353",
+        "time": "14:13"
+    },
+    "jaamac_14:18_1776079075": {
+        "pair": "JAAMAC",
+        "wave": "Wave 2",
+        "type": "BUY \ud83d\udfe2",
+        "entry": "3452",
+        "sl": "23452",
+        "tp": "2345",
+        "time": "14:18"
+    },
+    "akjdfa_14:20_1776079221": {
+        "pair": "AKJDFA",
+        "type": "BUY \ud83d\udfe2",
+        "entry": "3452",
+        "sl": "2345",
+        "tp": "2345",
+        "time": "14:20"
+    },
+    "dsaf_14:22_1776079333": {
+        "pair": "DSAF",
+        "type": "BUY \ud83d\udfe2",
+        "entry": "3452",
+        "sl": "2345",
+        "tp": "2345",
+        "time": "14:22"
+    },
+    "ID_ewwerg_14:24": {
+        "pair": "EWWERG",
+        "type": "BUY \ud83d\udfe2",
+        "entry": "3456",
+        "sl": "456",
+        "tp": "24562",
+        "time": "14:24"
+    }
+}
