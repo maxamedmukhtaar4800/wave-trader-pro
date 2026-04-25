@@ -67,11 +67,31 @@ def save_db(data):
         json.dump(data, f, indent=4)
 
 # Initialize
+# 1. SETUP & STARTUP (Xogta mar kasta faylka ha laga soo akhriyo)
 if 'user_db' not in st.session_state:
     st.session_state.user_db = load_db()
+else:
+    # Haddii bogga la refresh-gareeyo, dib u soo aqri faylka si xogtu u noqoto mid joogto ah
+    st.session_state.user_db = load_db()
+
 if 'auth' not in st.session_state:
     st.session_state.auth = False
 
+# 2. FUNCTION-KA CUSUB EE USER-KA LAGU DARAYO (Si aysan xogtu waligii u tirmayn)
+def add_new_user(username, password):
+    """Function-kan wuxuu xogta ku darayaa Session-ka iyo Faylka isku dar"""
+    # Ku dar Session-ka (UI ahaan)
+    st.session_state.user_db[username] = password
+    
+    # ISLA MARKIBA KU QOR FAYLKA (Tani waa sirtii Permanency-ga)
+    save_db(st.session_state.user_db)
+    
+    st.success(f"User {username} si joogto ah ayaa loo kaydiyay! ✅")
+
+# 3. TUSAALE: Markaad User cusub dhisayso koodkaaga dhexdiisa
+# Halkii aad ku qori lahayd st.session_state.user_db[user] = pass
+# Waxaad hadda isticmaalaysaa:
+# add_new_user(new_username, new_password)
 # --- SECURITY BOT LOGIC ---
 def security_bot(u_name):
     if u_name == "admin": return
@@ -187,12 +207,20 @@ def background_monitor():
         
         time.sleep(5) # 5-tii ilbiriqsiba mar ayuu iskiis u baarayaa
 
-# --- BILOW MASHIINKA (Haddii uusan hore u shaqaynayn) ---
+# --- BILOW MASHIINKA (Koodka la saxay oo xogta kaydinaya) ---
 if "bot_thread" not in st.session_state:
+    # 1. Hubi in xogtu ay markasta ka timaado faylka ka hor intaan mashiinku kicin
+    st.session_state.user_db = load_db()
+    
+    # 2. Bilaaw mashiinka background-ka
     thread = threading.Thread(target=background_monitor, daemon=True)
     thread.start()
+    
+    # 3. Kaydi in mashiinku bilowday
     st.session_state.bot_thread = True
-
+    
+    # 4. ISLA MARKIBA KAYDI (Si uusan waligii u dhiman)
+    save_db(st.session_state.user_db)
 # --- UI START ---
 st.set_page_config(page_title="MMI TRADER PRO", layout="wide")
 st.title("📊 Security & Tracker Control")
@@ -206,7 +234,7 @@ headers = ["Username", "Status", "Errors", "Reason", "Bylaw", "Date", "Action"]
 for col, text in zip(h, headers):
     col.markdown(f"<div style='background:#1E1E1E;color:#00CCFF;padding:10px;border:1px solid #444;text-align:center;font-weight:bold;'>{text}</div>", unsafe_allow_html=True)
 
-# Loop Users (Muqaalka Dashboard-ka)
+# Loop Users (Muqaalka Dashboard-ka - FIXED)
 for u, info in st.session_state.user_db.items():
     if u == "admin": continue
     with st.container():
@@ -215,7 +243,19 @@ for u, info in st.session_state.user_db.items():
         r[1].write("🔴 Blocked" if info.get("status") == "Blocked" else "🟢 Active")
         r[2].write(f"`{info.get('errors', 0)}/3`")
         
-        reason = r[3].text_input("Reason", value=info.get("message", ""), key=f"rs_{u}", label_visibility="collapsed")
+        # 1. Halkan waxaan ku daray amarka 'on_change' si Reason-ku u kaydmo isla marka aad qorto
+        reason = r[3].text_input(
+            "Reason", 
+            value=info.get("message", ""), 
+            key=f"rs_{u}", 
+            label_visibility="collapsed"
+        )
+        
+        # Hubi haddii Reason-ku isbeddelay, isla markiiba kaydi buugga (Permanent)
+        if reason != info.get("message", ""):
+            info["message"] = reason
+            save_db(st.session_state.user_db)
+
         r[4].write(f"*{info.get('blocked_by', '-')}*")
         r[5].write(f"<small>{info.get('date', '-')}</small>", unsafe_allow_html=True)
         
@@ -223,12 +263,14 @@ for u, info in st.session_state.user_db.items():
             if r[6].button("🛑 BLOCK", key=f"b_{u}"):
                 now = datetime.now().strftime("%d/%m/%Y %H:%M")
                 info.update({"status": "Blocked", "message": reason, "blocked_by": "ADMIN", "date": now})
+                # 2. Kaydi isbeddelka Block-ga (Permanent)
                 save_db(st.session_state.user_db)
                 send_telegram_alert(f"🛑 *ADMIN BLOCK*\n👤 *User:* {u}\n📝 *Sabab:* {reason}")
                 st.rerun()
         else:
             if r[6].button("✅ RESET", key=f"ok_{u}"):
                 info.update({"status": "Active", "errors": 0, "message": "", "blocked_by": "-", "date": "-"})
+                # 3. Kaydi isbeddelka Reset-ka (Permanent)
                 save_db(st.session_state.user_db)
                 st.rerun()
     st.markdown("<hr style='margin:0; border:0.1px solid #333'>", unsafe_allow_html=True)
@@ -318,11 +360,55 @@ st.markdown("""
 
     # --- STEP 4: CLEAN RISK MANAGEMENT (Only Balance Input) ---
 
-st.subheader("ACCOUNT BALANCE ($)")
+import streamlit as st
+import json
+import os
 
-# Qofku kaliya wuxuu galinayaa Balance-ka, wax kale lama tusayo
-balance = st.number_input("GALI LACAGTA ACCOUNT LACAGTA KUUGU JIRTA", value=1000, step=100)
+# --- 1. FUNCTIONS-KA KAYDINTA ---
+def load_json(filename):
+    if os.path.exists(filename):
+        with open(filename, "r") as f:
+            try: return json.load(f)
+            except: return {}
+    return {}
 
+def save_json(filename, data):
+    with open(filename, "w") as f:
+        json.dump(data, f, indent=4)
+
+# --- 2. FUNCTION-KA AUTOMATIC KAYDINTA AH ---
+def auto_save_balance():
+    # Marka qofku uu sanduuqa wax ku qoro, halkan ayaa si toos ah u kicinaysa
+    new_val = st.session_state.balance_input_key
+    st.session_state.balance = new_val
+    save_json("account.json", {"balance": new_val})
+
+# --- 3. SETUP-KA XOGTA ---
+if "balance" not in st.session_state:
+    st.session_state.balance = load_json("account.json").get("balance", 1000.0)
+
+# Default constants (Settings)
+fixed_risk_percent = 1.0 
+fixed_sl_pips = 30.0
+
+# --- 4. DASHBOARD (Automatic Input) ---
+st.subheader("💰 ACCOUNT BALANCE (Auto-Save)")
+
+# Halkan waa sirtu: 'on_change' ayaa shaqada qabanaysa adiga la'aantaa
+st.number_input(
+    "Gali lacagta (System-ku si automatic ah ayuu u kaydinayaa):",
+    value=float(st.session_state.balance),
+    step=100.0,
+    key="balance_input_key",
+    on_change=auto_save_balance  # Markaad beddesho, isagaa ordaya oo kaydinaya
+)
+
+# --- 5. XISAABINTA LOT SIZE ---
+balance = st.session_state.balance
+lot_size = (balance * (fixed_risk_percent / 100)) / (fixed_sl_pips * 10)
+
+st.success(f"Xogta hadda firfircoon: **${balance}**")
+st.info(f"Lot Size-ka ku habboon: **{lot_size:.2f}**")
 # Xisaabta gudaha ku jirta (Lama soo bandhigayo)
 fixed_risk_percent = 1.0
 fixed_sl_pips = 50
@@ -334,16 +420,51 @@ final_lot = max(lot_size, 0.01)
 # Xasuusin: Halkan wax 'st.info' ama 'st.write' ah kuma lihin 
 # si uusan u soo bixin 'Recommended Lot' iyo qoraalka kale.
 # 3. Bogga Dhexe (Main Dashboard)
+# --- 1. SETUP-KA XOGTA (Manual Stats) ---
+# Waxaan hubinaynaa in xogtan ay ku jirto Session-ka si aysan u tirmid
+if "total_trades" not in st.session_state:
+    st.session_state.total_trades = 0
+if "win_rate" not in st.session_state:
+    st.session_state.win_rate = 0
+if "net_profit" not in st.session_state:
+    st.session_state.net_profit = 0.0
+
+# --- 2. MEESHA XOGTA LAGU SHUBAYO (Manual Entry Form) ---
+with st.expander("🛠️ MAAMUL PERFORMANCE-KA (Manual)"):
+    col_a, col_b, col_c = st.columns(3)
+    
+    with col_a:
+        m_trades = st.number_input("Total Trades", value=st.session_state.total_trades)
+    with col_b:
+        m_win_rate = st.number_input("Win Rate (%)", value=st.session_state.win_rate)
+    with col_c:
+        m_profit = st.number_input("Net Profit ($)", value=float(st.session_state.net_profit))
+    
+    if st.button("Update Dashboard ✅"):
+        st.session_state.total_trades = m_trades
+        st.session_state.win_rate = m_win_rate
+        st.session_state.net_profit = m_profit
+        st.success("Dashboard-ka waa la cusboonaysiiyay!")
+        st.rerun()
+
+# --- 3. MUUQAALKA DASHBOARD-KA (Performance Overview) ---
 st.markdown("<h2 style='color: white;'> Performance Overview</h2>", unsafe_allow_html=True)
 
-# Qaybta Xisaab-xidhka (Metrics)
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Balance", f"${balance:,.2f}", "+2.5%")
-col2.metric("Monthly Win Rate", "0%", "N/A")
-col3.metric("Total Trades", "0", "New")
-col4.metric("Net Profit", "$0.00", "0%")
 
+# 1. Balance (Wuxuu isticmaalayaa kii aan hore u kaydinay)
+balance = st.session_state.get('balance', 1000.0)
+col1.metric("Balance", f"${balance:,.2f}", "+Manual")
 
+# 2. Monthly Win Rate (Manual)
+col2.metric("Monthly Win Rate", f"{st.session_state.win_rate}%", "N/A")
+
+# 3. Total Trades (Manual)
+col3.metric("Total Trades", f"{st.session_state.total_trades}", "Updated")
+
+# 4. Net Profit (Manual)
+profit_color = "inverse" if st.session_state.net_profit < 0 else "normal"
+col4.metric("Net Profit", f"${st.session_state.net_profit:,.2f}", f"{st.session_state.net_profit:,.2f}$", delta_color=profit_color)
 # 1. Habaynta Bogga
 st.set_page_config(page_title="MMI Trader - Watchlist", layout="wide")
 
@@ -393,8 +514,25 @@ with st.sidebar:
     selected_symbol = st.selectbox("Dooro Lacagta aad eegayso:", st.session_state.watchlist)
     timeframe = st.selectbox("Timeframe:", ["15m", "1h", "4h", "1d"])
     
-    st.markdown("---")
-    bot_status = st.toggle("System Live Connection", key="bot_switch")
+    import json
+import os
+
+# --- 1. FUNCTION-KA AKHRISKA XOGTA ---
+def load_json(filename):
+    """Xogta ka soo akhri faylka JSON haddii uu jiro"""
+    if os.path.exists(filename):
+        with open(filename, "r") as f:
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                return {}
+    return {}
+
+# --- 2. FUNCTION-KA KAYDINTA XOGTA ---
+def save_json(filename, data):
+    """Xogta ku qor faylka JSON si ay u noqoto Permanent"""
+    with open(filename, "w") as f:
+        json.dump(data, f, indent=4)
 # --- STEP 4: RISK MANAGEMENT ENGINE ---
 
 st.sidebar.markdown("---")
@@ -613,53 +751,56 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 3. CIWAANKA
-st.title("📊 Xisaab-xidhka Ganacsiga")
-st.write("Muuqaalku wuxuu si toos ah isugu hagaajinayaa shashaddaada (PC/Mobile).")
 
-st.divider()
+import streamlit as st
+import pandas as pd
 
-# 4. PERFORMANCE OVERVIEW (Metrics)
-# Afar tiir Computer-ka, hal tiir Mobile-ka
-m_col1, m_col2, m_col3, m_col4 = st.columns([1, 1, 1, 1])
-with m_col1:
-    st.metric("Balance", "$1,000", "+2.5%")
-with m_col2:
-    st.metric("Win Rate", "64%", "Stable")
-with m_col3:
-    st.metric("Total Trades", "128")
-with m_col4:
-    st.metric("Net Profit", "$2,450", "+12%")
+# --- 1. SETUP ---
+st.set_page_config(page_title="Realistic Trading Goal", layout="wide")
+st.title("Qorshaha kordhinta accoun-kaaga")
 
-st.divider()
+# --- 2. GALI XOGTAADA ---
+with st.container():
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        username = st.text_input("Magacaaga:", value="ku qor magacaaga")
+    with col2:
+        balance = st.number_input("Balance-kaaga ($):", value=1000)
+    with col3:
+        # Waxaan xaddidnay inaanu 10% ka badan bishii (Safety First)
+        monthly_pct = st.slider("Hadafka Bisha (%):", 1.0, 100.0, 100.0)
 
-# 5. INPUTS & PROGRESS (Hadafka)
-# Computer-ka waxay noqonayaan laba dhinac, Mobile-kana isku dul
-left_col, right_col = st.columns([1, 1.2], gap="large")
+# --- 3. XISAABINTA CAQLIGA AH (LOGIC) ---
+# Bishu waa 22 maalmood oo shaqo
+total_profit_goal = balance * (monthly_pct / 100)
+daily_profit_goal = total_profit_goal / 22
 
-with left_col:
-    st.subheader("📥 Gali Xogtaada")
-    hadafka = st.number_input("Hadafka bisha ($):", value=5000)
-    hadda = st.number_input("Faa'iidada hadda ($):", value=2450)
-    win_rate_val = st.slider("Win Rate (%):", 0, 100, 64)
+# --- 4. MUUQAALKA "QOFKU UU GASHAN KARO" ---
+st.markdown("---")
+st.subheader(f"Qorshaha Shaqada: {username}")
 
-with right_col:
-    st.subheader("🏆 Horumarkaaga")
-    
-    # Xisaabinta
-    if hadafka > 0:
-        percent = (hadda / hadafka) * 100
-        progress_val = min(hadda / hadafka, 1.0)
-    else:
-        percent, progress_val = 0, 0
-    
-    st.write(f"Waxaad gaartay: **{percent:.1f}%**")
-    st.progress(progress_val)
-    
-    # Warbixin kooban
-    st.info(f"Hadafka hadda kuu dhiman: **${max(hadafka - hadda, 0):,.2f}**")
+# Qaybtan waxaan u sameeyay si qofka maskaxdiisa ay u aqbasho
+c1, c2, c3 = st.columns(3)
+c1.metric("Hadafka Bishii", f"${total_profit_goal:,.2f}")
+c2.metric("Hadafka Maalintii", f"${daily_profit_goal:,.2f}")
+c3.metric("Risk-ga Trade-kiiba", "0.5% - 1%")
 
-st.divider()
+# --- 5. JADWALKA SHAQADA (THE ACTION PLAN) ---
+plan_list = []
+temp_bal = balance
+for day in range(1, 23):
+    temp_bal += daily_profit_goal
+    plan_list.append({
+        "Maalinta": f"Day {day}",
+        "Hadafka Lacageed": f"${daily_profit_goal:,.2f}",
+        "Balance-ka la rabo": f"${temp_bal:,.2f}",
+        "Talo": "Jooji trading-ka markaad gaarto hadafka maanta."
+    })
+
+df = pd.DataFrame(plan_list)
+st.table(df)
+
+
 
 import streamlit as st
 import json
@@ -709,114 +850,24 @@ def is_signal_valid(sinfo):
     return True
 
 def background_worker():
-    sent_signals = {}
+    # Bot-ku wuxuu ahaanayaa mid mar kasta shaqaynaya (Always ON)
     while True:
-        now = get_now()
-        signals = load_data(SIGNALS_FILE)
-        
-        for sid, sinfo in list(signals.items()):
-            # KALIYA SHAQEE HADDII XOGTU DHAMMAYSTIRAN TAHAY
-            if not is_signal_valid(sinfo):
-                continue
-
-            try:
-                sig_time_obj = datetime.strptime(sinfo['time'], "%H:%M")
-                sig_time = SOMALIA_TZ.localize(sig_time_obj.replace(
-                    year=now.year, month=now.month, day=now.day
-                ))
-                diff = (sig_time - now).total_seconds() / 60
-
-                # A. 5 MIN ALERT (Check integrity again)
-                if 4.8 <= diff <= 5.2 and f"{sid}_5m" not in sent_signals:
-                    msg = (f"⏳ *PREPARE (5 MIN)*\n\n"
-                           f"💹 *Pair:* {sinfo['pair']}\n"
-                           f"🌊 *Mawjada:* {sinfo['wave']}\n"
-                           f"📊 *Type:* {sinfo['type']}\n"
-                           f"⏰ *Time:* {sinfo['time']}")
-                    send_telegram_alert(msg)
-                    sent_signals[f"{sid}_5m"] = True
-
-                # B. ENTRY NOW (Kaliya haddii Entry, SL, iyo TP ay sax yihiin)
-                if -0.5 <= diff <= 0.5 and f"{sid}_now" not in sent_signals:
-                    msg = (f"🚀 *SIGNAL ENTRY NOW*\n\n"
-                           f"💹 *Pair:* {sinfo['pair']}\n"
-                           f"🌊 *Wave:* {sinfo['wave']}\n"
-                           f"⚡️ *Action:* {sinfo['type']}\n"
-                           f"💰 *Entry:* {sinfo['entry']}\n"
-                           f"🛑 *SL:* {sinfo['sl']}\n"
-                           f"✅ *TP:* {sinfo['tp']}")
-                    send_telegram_alert(msg)
-                    sent_signals[f"{sid}_now"] = True
-                    
-                    # Kaydi History
-                    history = load_data(HISTORY_FILE)
-                    history[str(int(time.time()))] = {
-                        "date": now.strftime("%d/%m/%Y"),
-                        "pair": sinfo['pair'], "type": sinfo['type'],
-                        "wave": sinfo['wave'], "entry": sinfo['entry'],
-                        "sl": sinfo['sl'], "tp": sinfo['tp']
-                    }
-                    save_data(HISTORY_FILE, history)
-            except: continue
-        time.sleep(5)
-
-if "worker_started" not in st.session_state:
-    threading.Thread(target=background_worker, daemon=True).start()
-    st.session_state.worker_started = True
-
-import streamlit as st
-import json
-import os
-import requests
-import time
-import threading
-from datetime import datetime
-import pytz
-
-# 1. SETUP & CONFIG
-SOMALIA_TZ = pytz.timezone('Africa/Mogadishu')
-SIGNALS_FILE = "active_signals.json"
-SENT_LOG_FILE = "final_sent_log.json"
-
-def get_now():
-    return datetime.now(SOMALIA_TZ)
-
-def load_json(file):
-    if os.path.exists(file):
         try:
-            with open(file, "r") as f: return json.load(f)
-        except: return {}
-    return {}
-
-def save_json(file, data):
-    with open(file, "w") as f:
-        json.dump(data, f, indent=4)
-
-def send_telegram(message):
-    TOKEN = "8780775034:AAFlYB7JMAOQ_G9WU4XwLjZ5nAYpuEm9-vU"
-    CHAT_ID = "6694010843"
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    try:
-        requests.post(url, json={"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}, timeout=10)
-    except: pass
-
-# 2. 🤖 MASHIINKA AUTOMATIC-GA AH (Hubinta Signal-yada)
-def background_worker():
-    while True:
-        # Hubi haddii System-ku uu SHIDAN yahay (ON)
-        if st.session_state.get('system_on', False):
-            now = get_now()
+            now = datetime.now(SOMALIA_TZ)
             current_minute = now.strftime("%H:%M")
             
-            # Si toos ah uga akhriso signals-ka system-kaaga kale
+            # 1. Si toos ah uga akhriso signals-ka disk-ka (Permanent Storage)
             signals = load_json(SIGNALS_FILE)
             sent_log = load_json(SENT_LOG_FILE)
             
+            # Haddii faylku madhan yahay, ka dhig dict (Safety check)
+            if not isinstance(sent_log, dict):
+                sent_log = {}
+
             for sid, sinfo in list(signals.items()):
-                # Signal-ka waa inuu matches gareeyaa waqtiga iyo inaan horay loo dirin
+                # Hubi waqtiga iyo inaan horay loo dirin
                 if sinfo.get('time') == current_minute and sid not in sent_log:
                     
-                    # Professional Design oo automatic ah
                     msg = (
                         f"🛰️ *AUTO-SIGNAL EXECUTED*\n"
                         f"━━━━━━━━━━━━━━━━━━\n"
@@ -828,32 +879,18 @@ def background_worker():
                         f"🟢 *Status:* `System Live`"
                     )
                     
+                    # 2. U dir fariinta Telegram
                     send_telegram(msg)
                     
-                    # LOCK: Ku qor sent_log si uusan fariimo badan u soo dirin
+                    # 3. XOG KAYDINTA (PERMANENT LOCK): 
+                    # Isla markiiba u qor faylka si uusan waligii ugu soo noqon
                     sent_log[sid] = True
                     save_json(SENT_LOG_FILE, sent_log)
-        
-        time.sleep(30) # Sug 30 ilbiriqsi
-
-# 3. CONTROLS & UI (8-Section Integration)
-st.set_page_config(page_title="MMI Wave Scanner", layout="wide")
-
-# QAYBTA KONTROOLKA (ON/OFF Switch)
-st.sidebar.title("SYSTE KA AKHRINAYA XOGTA")
-system_status = st.sidebar.toggle("System Live Connection", value=True)
-st.session_state.system_on = system_status
-
-if system_status:
-    st.sidebar.success("✅ Bot-ku hadda waa SHIDAN YAHAY MARKA UU SIGNAL HELANA WUXU KUSO DIRAYA TELEGRAM-KA")
-else:
-    st.sidebar.error("🔴 Bot-ku hadda waa DAMISAN YAHAY")
-
-# 🛑 START THREAD (Hal mar oo qura)
-if "worker_thread" not in st.session_state:
-    existing_threads = [t.name for t in threading.enumerate()]
-    if "MMI_Auto_Worker" not in existing_threads:
-        thread = threading.Thread(target=background_worker, name="MMI_Auto_Worker", daemon=True)
-        thread.start()
-    st.session_state.worker_thread = True
-
+                    
+        except Exception as e:
+            # Anti-Crash: Haddii error dhaco, sug 10 ilbiriqsi
+            time.sleep(10)
+            continue
+            
+        # Sug 30 ilbiriqsi ka hor intaadan mar kale hubin
+        time.sleep(30)
